@@ -1,4 +1,5 @@
 #include "lexer.hpp"
+
 #include <cctype>
 #include <string>
 #include <vector>
@@ -35,6 +36,25 @@ Token Lexer::tokenize_digit() {
     return {.type = TokenType::num, .var = buf};
 }
 
+Token Lexer::tokenize_str() {
+    std::string buf;
+    consume();  // skip first double quotes
+
+    while (peek().has_value() && peek().value() != '"') {
+        buf.push_back(consume());
+    }
+
+    return {.type = TokenType::str, .var = buf};
+}
+
+void Lexer::remove_comments() {
+    while (peek().has_value() && peek().value() != '\n') {
+        consume();
+    }
+
+    m_index--;  // so that the lexer doesn't miss cr
+}
+
 std::vector<Token> Lexer::gen_tokens() {
     std::vector<Token> result;
     std::string buf;
@@ -51,22 +71,24 @@ std::vector<Token> Lexer::gen_tokens() {
             switch (c.value()) {
                 case '(': result.push_back({.type = TokenType::open_paren}); break;
                 case ')': result.push_back({.type = TokenType::close_paren}); break;
-                case '>': break;
-                case '<': break;
-                case '=': break;
-                case '"': break;
-                case '+': break;
-                case '-': break;
-                case '*': break;
-                case '/': break;
-                case ',': break;
-                case ' ': break;
+                case '>': result.push_back({.type = TokenType::gt}); break;
+                case '<': result.push_back({.type = TokenType::lt}); break;
+                case '=': result.push_back({.type = TokenType::eq}); break;
+                case '+': result.push_back({.type = TokenType::plus}); break;
+                case '-': result.push_back({.type = TokenType::minus}); break;
+                case '*': result.push_back({.type = TokenType::mul}); break;
+                case '/': result.push_back({.type = TokenType::div}); break;
+                case ',': result.push_back({.type = TokenType::com}); break;
                 case '\n': result.push_back({.type = TokenType::cr}); break;
+                case '"': result.push_back(tokenize_str()); break;
+                case '\'': remove_comments();
+                case ' ': break;
             }
             consume();
         }
     }
     
+    m_index = 0;
     return result;
 }
 

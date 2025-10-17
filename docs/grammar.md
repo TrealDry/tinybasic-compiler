@@ -43,4 +43,4 @@ string -> " (ascii-char)* "
 // cr is new line \
 // * is zero or many non-terminal \
 // e is epsilon, empty string \
-// LIST doesn't do anything
+// LIST and RUN doesnt work (because is a compiler, not inter)
