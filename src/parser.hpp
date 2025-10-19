@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <string>
 #include <variant>
 #include <vector>
 
@@ -18,48 +19,28 @@ struct NodeNum {
 
 struct NodeExpr;
 struct NodeFactor {
-    std::variant<NodeVar*, NodeNum*, NodeExpr*> body;
+    std::variant<NodeVar, NodeNum, NodeExpr*> body;
 };
 
-struct NodeFactorMult;
-struct NodeFactorDiv {
-    std::variant<NodeFactor*, NodeFactorMult*, NodeFactorDiv*> fact;
+struct NodeFactorOp {
+    std::variant<NodeFactor*, NodeFactorOp*> fact;
     NodeFactor* fact2;
-};
-
-struct NodeFactorMult {
-    std::variant<NodeFactor*, NodeFactorMult*, NodeFactorDiv*> fact;
-    NodeFactor* fact2;
+    bool is_mul;  // false - div, true - mul
 };
 
 struct NodeTerm {
-    std::variant<NodeFactor*, NodeFactorMult*, NodeFactorDiv*> fact;
+    std::variant<NodeFactor*, NodeFactorOp*> fact;
+    std::optional<bool> is_negative;
 };
 
-struct NodeTermNegative {
-    NodeTerm* term;
-};
-
-struct NodeTermPositive {
-    NodeTerm* term;
-};
-
-struct NodeTermMinus;
-struct NodeTermPlus {
-    std::variant<NodeTerm*, NodeTermPositive*, NodeTermNegative*, 
-    NodeTermPlus*, NodeTermMinus*> term;
+struct NodeTermOp {
+    std::variant<NodeTerm*, NodeTermOp*> term;
     std::variant<NodeTerm*> term2;
-};
-
-struct NodeTermMinus {
-    std::variant<NodeTerm*, NodeTermPositive*,
-    NodeTermNegative*, NodeTermPlus*, NodeTermMinus*> term;
-    std::variant<NodeTerm*> term2;
+    bool is_add;  // false - sub, true - add
 };
 
 struct NodeExpr {
-    std::variant<NodeTerm*, NodeTermPositive*, 
-    NodeTermNegative*, NodeTermPlus*, NodeTermMinus*> expr;
+    std::variant<NodeTerm*, NodeTermOp*> term;
 };
 
 struct NodeExprList {
@@ -122,6 +103,8 @@ private:
     std::optional<Token> peek(int offset = 0);
     Token consume();
 
+    NodeFactor* parse_factor();
+    NodeTerm* parse_term();
     NodeExpr* parse_expr();
     NodeStatLet* parse_stat_let();
     NodeLine* parse_line();

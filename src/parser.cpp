@@ -1,10 +1,89 @@
+#include <optional>
 #include <stdexcept>
+#include <variant>
 
 #include "parser.hpp"
 #include "lexer.hpp"
 
+NodeFactor* Parser::parse_factor() {
+    if (!peek().has_value())
+        throw std::runtime_error("Factor is empty!");
+
+    auto fact = m_mem_pool.alloc<NodeFactor>();
+
+    switch (peek().value().type) {
+        case TokenType::var:
+            fact->body = NodeVar{.name = consume().var.value()};
+            break;
+        case TokenType::num:
+            fact->body = NodeNum{.num = consume().var.value()};
+            break;
+        case TokenType::open_paren:
+            fact->body = parse_expr();
+
+            if (!peek().has_value() || \
+                peek().value().type != TokenType::close_paren)
+                throw std::runtime_error("Doesnt exist close paren after expr!");
+            
+            break;
+        default:
+            throw std::runtime_error("Wrong keyword for factor!");
+    }
+
+    return fact;
+}
+
+NodeTerm* Parser::parse_term() {
+    if (!peek().has_value())
+        throw std::runtime_error("Term is empty!");
+
+    auto term = m_mem_pool.alloc<NodeTerm>();
+
+    term->fact = parse_factor();
+    
+    return term;
+}
+
 NodeExpr* Parser::parse_expr() {
+    if (!peek().has_value()) 
+        throw std::runtime_error("Expression is empty!");
+
     auto expr = m_mem_pool.alloc<NodeExpr>();
+
+    while (peek().has_value() && peek().value().type != TokenType::cr) {
+        bool term_op_exits = false;
+        NodeTerm* first_term;
+
+        if (peek().value().type == TokenType::plus || peek().value().type == TokenType::minus) {
+            term_op_exits = true;
+        } else {
+            first_term = parse_term();
+
+            if (!peek().has_value()) {
+                expr->term = first_term;
+                return expr;
+            }
+            
+            if (peek().value().type != TokenType::plus && peek().value().type != TokenType::minus) {
+                throw std::runtime_error("Invalid expression!");
+            }
+        }
+
+        auto term_op = m_mem_pool.alloc<NodeTermOp>();
+        auto op = consume();
+
+        NodeTerm* second_term = parse_term();
+
+        term_op->is_add = op.type == TokenType::plus;
+        if (term_op_exits) {
+            term_op->term = std::get<1>(expr->term);
+        } else {
+            term_op->term = first_term;
+        }
+        term_op->term2 = second_term;
+
+        expr->term = term_op;
+    }
 
     return expr;
 }
@@ -19,7 +98,7 @@ NodeStatLet* Parser::parse_stat_let() {
     if (var_name.length() != 1 || !std::isupper(var_name.at(0)))
         throw std::runtime_error("Invalid var name!");
     
-    stat_let->var = NodeVar{.name = consume().var.value()};
+    stat_let->var = NodeVar{.name = var_name};
 
     if (!peek().has_value() || peek().value().type != TokenType::eq)
         throw std::runtime_error("Operator '=' is missing!");
@@ -32,9 +111,8 @@ NodeStatLet* Parser::parse_stat_let() {
 }
 
 NodeStat* Parser::parse_stat() {
-    if (!peek().has_value()) {
+    if (!peek().has_value()) 
         throw std::runtime_error("Command is empty!");
-    }
 
     auto node_stat = m_mem_pool.alloc<NodeStat>();
     auto token = consume();
@@ -63,10 +141,9 @@ NodeStat* Parser::parse_stat() {
 NodeLine* Parser::parse_line() {
     auto line = m_mem_pool.alloc<NodeLine>();
 
-    auto token = consume();
-    if (token.type == TokenType::num) {
+    if (peek().value().type == TokenType::num) {
+        auto token = consume();
         line->num = NodeNum{.num = token.var.value()};
-        token = consume();
     }
 
     line->stat = parse_stat();

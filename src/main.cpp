@@ -4,6 +4,7 @@
 #include <sstream>
 
 #include "./lexer.hpp"
+#include "./parser.hpp"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -20,7 +21,12 @@ int main(int argc, char* argv[]) {
     std::string code = code_stream.str();
 
     Lexer l{code};
-    auto result = l.gen_tokens();
+    auto tokens = l.gen_tokens();
+
+    Parser p{tokens};
+    auto node_prog = p.gen_prog();
+
+    std::cout << "end!" << std::endl;
 
     return EXIT_SUCCESS;
 }
