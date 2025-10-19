@@ -19,11 +19,13 @@ NodeFactor* Parser::parse_factor() {
             fact->body = NodeNum{.num = consume().var.value()};
             break;
         case TokenType::open_paren:
-            fact->body = parse_expr();
+            consume();
+            fact->body = std::get<1>(parse_expr()->term);
 
             if (!peek().has_value() || \
                 peek().value().type != TokenType::close_paren)
                 throw std::runtime_error("Doesnt exist close paren after expr!");
+            consume();
             
             break;
         default:
@@ -46,7 +48,7 @@ NodeTerm* Parser::parse_term() {
 
 NodeExpr* Parser::parse_expr() {
     if (!peek().has_value()) 
-        throw std::runtime_error("Expression is empty!");
+        throw std::runtime_error("Expression (tokens) is empty!");
 
     auto expr = m_mem_pool.alloc<NodeExpr>();
 
@@ -56,6 +58,12 @@ NodeExpr* Parser::parse_expr() {
 
         if (peek().value().type == TokenType::plus || peek().value().type == TokenType::minus) {
             term_op_exits = true;
+        } else if (peek().value().type == TokenType::close_paren) {
+            if (expr) {
+                return expr;
+            } else {
+                throw std::runtime_error("Expression is empty!");
+            }
         } else {
             first_term = parse_term();
 

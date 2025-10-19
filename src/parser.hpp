@@ -17,9 +17,10 @@ struct NodeNum {
     std::string num;
 };
 
-struct NodeExpr;
+struct NodeTerm;
+struct NodeTermOp;
 struct NodeFactor {
-    std::variant<NodeVar, NodeNum, NodeExpr*> body;
+    std::variant<NodeVar, NodeNum, NodeTerm*, NodeTermOp*> body;
 };
 
 struct NodeFactorOp {
