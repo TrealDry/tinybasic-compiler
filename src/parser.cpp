@@ -118,6 +118,35 @@ NodeStatLet* Parser::parse_stat_let() {
     return stat_let;
 }
 
+NodeStatPrint* Parser::parse_stat_print() {
+    auto stat_print = m_mem_pool.alloc<NodeStatPrint>();
+    auto expr_list = m_mem_pool.alloc<NodeExprList>();
+
+    stat_print->exprs = expr_list;
+
+    if (!peek().has_value())
+        throw std::runtime_error("Print is empty!");
+
+    while (peek().has_value() && peek().value().type != TokenType::cr) {
+        if (peek().value().type == TokenType::num || \
+            peek().value().type == TokenType::open_paren) 
+        {
+            expr_list->list.push_back(parse_expr());
+        }
+        else if (peek().value().type == TokenType::str) {
+            expr_list->list.push_back(consume().var.value());
+        }
+        else if (peek().value().type == TokenType::com) {
+            consume();
+        }
+        else {
+            throw std::runtime_error("Wrong token in print!");
+        }
+    }
+
+    return stat_print;
+}
+
 NodeStat* Parser::parse_stat() {
     if (!peek().has_value()) 
         throw std::runtime_error("Command is empty!");
@@ -126,7 +155,9 @@ NodeStat* Parser::parse_stat() {
     auto token = consume();
 
     switch (token.type) {
-        case TokenType::print: break;
+        case TokenType::print:
+            node_stat->com = Parser::parse_stat_print();
+            break;
         case TokenType::_if: break;
         case TokenType::_goto: break;
         case TokenType::input: break;

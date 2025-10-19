@@ -5,6 +5,7 @@
 
 #include "./lexer.hpp"
 #include "./parser.hpp"
+#include "generator.hpp"
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -26,7 +27,15 @@ int main(int argc, char* argv[]) {
     Parser p{tokens};
     auto node_prog = p.gen_prog();
 
-    std::cout << "end!" << std::endl;
+    std::fstream output("out.asm", std::ios::out);
+
+    Generator g{node_prog};
+    output << g.gen_asm();
+    output.close();
+
+    int result;
+    result = system("nasm -felf64 out.asm");
+    result = system("ld -o out out.o");
 
     return EXIT_SUCCESS;
 }

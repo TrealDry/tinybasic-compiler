@@ -107,9 +107,12 @@ private:
     NodeFactor* parse_factor();
     NodeTerm* parse_term();
     NodeExpr* parse_expr();
+    
     NodeStatLet* parse_stat_let();
-    NodeLine* parse_line();
+    NodeStatPrint* parse_stat_print();
     NodeStat* parse_stat();
+
+    NodeLine* parse_line();
 
     MemoryPool m_mem_pool;
     std::vector<Token> m_tokens;

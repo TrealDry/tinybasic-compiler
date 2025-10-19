@@ -1046,3 +1046,8 @@ dkms.conf
 
 # Visual Studio Code
 .vscode/
+
+# Compiler work
+out
+out.asm
+out.o
