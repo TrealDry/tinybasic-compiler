@@ -35,7 +35,11 @@ int main(int argc, char* argv[]) {
 
     int result;
     result = system("nasm -felf64 out.asm");
-    result = system("ld -o out out.o");
+    if (g.used_printf()) {
+        result = system("ld -o out out.o -lc --dynamic-linker /lib64/ld-linux-x86-64.so.2");
+    } else {
+        result = system("ld -o out out.o");
+    }
 
     return EXIT_SUCCESS;
 }

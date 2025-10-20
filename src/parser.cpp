@@ -67,11 +67,12 @@ NodeExpr* Parser::parse_expr() {
         } else {
             first_term = parse_term();
 
-            if (!peek().has_value()) {
+            if (!peek().has_value() || peek().value().type == TokenType::cr) {
+                consume();
                 expr->term = first_term;
                 return expr;
             }
-            
+
             if (peek().value().type != TokenType::plus && peek().value().type != TokenType::minus) {
                 throw std::runtime_error("Invalid expression!");
             }
@@ -129,6 +130,7 @@ NodeStatPrint* Parser::parse_stat_print() {
 
     while (peek().has_value() && peek().value().type != TokenType::cr) {
         if (peek().value().type == TokenType::num || \
+            peek().value().type == TokenType::var || \
             peek().value().type == TokenType::open_paren) 
         {
             expr_list->list.push_back(parse_expr());

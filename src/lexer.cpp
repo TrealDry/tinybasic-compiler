@@ -88,6 +88,9 @@ std::vector<Token> Lexer::gen_tokens() {
         }
     }
     
+    if (result.size() != 0)
+        result.push_back({.type=TokenType::cr});
+
     m_index = 0;
     return result;
 }

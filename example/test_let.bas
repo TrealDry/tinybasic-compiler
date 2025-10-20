@@ -1,1 +1,2 @@
-010 LET Z = 5 + (4 - 3)
+010 LET Z = 5
+020 PRINT "result: ", Z
