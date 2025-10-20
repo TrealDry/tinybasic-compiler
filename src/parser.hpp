@@ -41,7 +41,7 @@ struct NodeTermOp {
 };
 
 struct NodeExpr {
-    std::variant<NodeTerm*, NodeTermOp*> term;
+    std::variant<std::monostate, NodeTerm*, NodeTermOp*> term;
 };
 
 struct NodeExprList {
@@ -59,10 +59,16 @@ struct NodeRelop {
     RelopType type;
 };
 
+struct NodeStat;
 struct NodeStatPrint {
     NodeExprList* exprs;
 };
-struct NodeStatIf {};
+struct NodeStatIf {
+    NodeExpr* expr;
+    NodeExpr* expr2;
+    NodeRelop relop;
+    NodeStat* then;
+};
 struct NodeStatGoto {};
 struct NodeStatInput {};
 struct NodeStatLet {
@@ -107,7 +113,9 @@ private:
     NodeFactor* parse_factor();
     NodeTerm* parse_term();
     NodeExpr* parse_expr();
+    NodeRelop parse_relop();
     
+    NodeStatIf* parse_stat_if();
     NodeStatLet* parse_stat_let();
     NodeStatPrint* parse_stat_print();
     NodeStat* parse_stat();

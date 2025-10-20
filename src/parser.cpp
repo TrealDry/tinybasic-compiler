@@ -51,6 +51,7 @@ NodeExpr* Parser::parse_expr() {
         throw std::runtime_error("Expression (tokens) is empty!");
 
     auto expr = m_mem_pool.alloc<NodeExpr>();
+    expr->term = std::monostate{};
 
     while (peek().has_value() && peek().value().type != TokenType::cr) {
         bool term_op_exits = false;
@@ -58,24 +59,31 @@ NodeExpr* Parser::parse_expr() {
 
         if (peek().value().type == TokenType::plus || peek().value().type == TokenType::minus) {
             term_op_exits = true;
-        } else if (peek().value().type == TokenType::close_paren) {
-            if (expr) {
-                return expr;
-            } else {
-                throw std::runtime_error("Expression is empty!");
-            }
-        } else {
+        } else if (peek().value().type == TokenType::num || \
+                   peek().value().type == TokenType::var || \
+                   peek().value().type == TokenType::open_paren || \
+                   peek().value().type == TokenType::mul || \
+                   peek().value().type == TokenType::div) 
+        {
             first_term = parse_term();
 
-            if (!peek().has_value() || peek().value().type == TokenType::cr) {
+            if (!peek().has_value()) {
+                expr->term = first_term;
+                return expr;
+            } else if (peek().value().type == TokenType::cr) {
                 consume();
                 expr->term = first_term;
                 return expr;
             }
 
             if (peek().value().type != TokenType::plus && peek().value().type != TokenType::minus) {
-                throw std::runtime_error("Invalid expression!");
+                if (expr->term.index() == 0)
+                    expr->term = first_term;
+
+                return expr;
             }
+        } else {
+            return expr;
         }
 
         auto term_op = m_mem_pool.alloc<NodeTermOp>();
@@ -95,6 +103,74 @@ NodeExpr* Parser::parse_expr() {
     }
 
     return expr;
+}
+
+NodeRelop Parser::parse_relop() {
+    if (!peek().has_value() && !peek(1).has_value())
+        throw std::runtime_error("Relop is empty!");
+    
+    NodeRelop relop;
+
+    Token first_token = consume();
+    Token second_token;
+
+    if (peek().value().type == TokenType::eq || \
+        peek().value().type == TokenType::gt || \
+        peek().value().type == TokenType::lt)
+    {
+        second_token = consume();
+    } else {
+        second_token = Token{.type=TokenType::none};
+    }
+
+    switch (first_token.type) {
+        case TokenType::lt:
+            if (second_token.type == TokenType::gt) 
+                relop.type = RelopType::ne;
+            else if (second_token.type == TokenType::eq)
+                relop.type = RelopType::lte;
+            else
+                relop.type = RelopType::lt;
+            break;
+
+        case TokenType::gt:
+            if (second_token.type == TokenType::lt) 
+                relop.type = RelopType::crazy;  // TODO print warn
+            else if (second_token.type == TokenType::eq)
+                relop.type = RelopType::gte;
+            else
+                relop.type = RelopType::gt;
+            break;
+
+        case TokenType::eq:
+            relop.type = RelopType::eq;
+            break;
+
+        default:
+            throw std::runtime_error("Wrong token for relop!");
+    }
+
+    return relop;
+}
+
+NodeStatIf* Parser::parse_stat_if() {
+    auto stat_if = m_mem_pool.alloc<NodeStatIf>();
+
+    if (!peek().has_value())
+        throw std::runtime_error("First expr is empty!");
+
+    stat_if->expr  = parse_expr();
+    stat_if->relop = parse_relop();
+    stat_if->expr2 = parse_expr();
+
+    if (!peek().has_value() || peek().value().type != TokenType::then)
+        throw std::runtime_error("THEN keyword is missing!");
+
+    consume();
+
+    stat_if->then = parse_stat();
+
+    return stat_if;
 }
 
 NodeStatLet* Parser::parse_stat_let() {
@@ -119,8 +195,6 @@ NodeStatLet* Parser::parse_stat_let() {
     if (peek().value().type != TokenType::cr) {
         throw std::runtime_error("Wrong constuction let!");
     }
-
-    consume();
 
     return stat_let;
 }
@@ -151,9 +225,6 @@ NodeStatPrint* Parser::parse_stat_print() {
             throw std::runtime_error("Wrong token in print!");
         }
     }
-
-    if (peek().has_value() && peek()->type == TokenType::cr)
-        consume();
     
     return stat_print;
 }
@@ -169,7 +240,9 @@ NodeStat* Parser::parse_stat() {
         case TokenType::print:
             node_stat->com = Parser::parse_stat_print();
             break;
-        case TokenType::_if: break;
+        case TokenType::_if:
+            node_stat->com = Parser::parse_stat_if();
+            break;
         case TokenType::_goto: break;
         case TokenType::input: break;
         case TokenType::let: 
@@ -180,11 +253,15 @@ NodeStat* Parser::parse_stat() {
         case TokenType::clear: break;
         case TokenType::list: break;
         case TokenType::run: break;
-        case TokenType::end: break;
-        case TokenType::cr:
+        case TokenType::end:
+            node_stat->com = m_mem_pool.alloc<NodeStatEnd>();
+            break;
         default: 
             throw std::runtime_error("Invalid command!");
     }
+
+    if (peek().has_value() && peek()->type == TokenType::cr)
+        consume();
 
     return node_stat;
 }

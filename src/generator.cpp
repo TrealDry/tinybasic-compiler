@@ -113,6 +113,8 @@ void Generator::gen_expr(NodeExpr* expr) {
     struct ExprVisitor {
         Generator* gen;
 
+        void operator()(std::monostate& mono) {}
+
         void operator()(NodeTerm* term) {
             gen->gen_term(term);
         }
@@ -136,29 +138,28 @@ void Generator::gen_stat(NodeStat* stat) {
             struct ExprListVisitor {
                 Generator* gen;
                 bool last_print;
-                bool simple_print_initialized = false;
 
                 void operator()(NodeExpr* expr) {
-                    simple_print_initialized = false;
                     gen->gen_expr(expr);
                     gen->print_number(last_print);
                 }
                 void operator()(std::string& str) {
                     int str_index = gen->write_str_in_data(str);
 
-                    if (!simple_print_initialized) {
-                        gen->m_output << "\tmov rax, 1\n";
-                        gen->m_output << "\tmov rdi, 1\n";
-                        simple_print_initialized = true;
-                    }
+                    gen->m_output << "\tmov rax, 1\n";
+                    gen->m_output << "\tmov rdi, 1\n";
                     gen->m_output << "\tmov rsi, str" << str_index << "\n";
                     gen->m_output << "\tmov rdx, len" << str_index << "\n";
                     gen->m_output << "\tsyscall\n";
 
                     if (last_print) {  // print new line
-                        gen->m_output << "\tmov rsi, 10\n";
+                        gen->m_output << "\tmov rax, 1\n";
+                        gen->m_output << "\tmov rdi, 1\n";
+                        gen->m_output << "\tpush 10\n";
+                        gen->m_output << "\tmov rsi, rsp\n";
                         gen->m_output << "\tmov rdx, 1\n";
                         gen->m_output << "\tsyscall\n";
+                        gen->m_output << "\tadd rsp, 8\n";
                     }
                 }
             };
@@ -187,7 +188,41 @@ void Generator::gen_stat(NodeStat* stat) {
             }
         }
 
-        void operator()(const NodeStatIf* stat_if) {}
+        void operator()(const NodeStatIf* stat_if) {
+            gen->gen_expr(stat_if->expr);
+            gen->gen_expr(stat_if->expr2);
+
+            std::string jump;  // jump for skip stat
+            bool reverse_reg = false;
+
+            switch (stat_if->relop.type) {
+                case RelopType::eq:  jump = "jne"; break;
+                case RelopType::ne:  jump = "je";  break;
+                case RelopType::lt:  jump = "jle"; break;
+                case RelopType::lte: jump = "jl";  break;
+
+                case RelopType::gt:  jump = "jle"; reverse_reg = true; break;
+                case RelopType::gte: jump = "jl";  reverse_reg = true; break;
+
+                case RelopType::crazy: jump = "je"; break;  // plug
+            }
+
+            if (!reverse_reg) {
+                gen->pop("rax");
+                gen->pop("rbx");
+            } else {
+                gen->pop("rbx");
+                gen->pop("rax");
+            }
+
+            gen->m_output << "\tcmp rax, rbx\n";
+            gen->m_output << "\t" << jump << " skip" << gen->m_skip_counter << "\n";
+
+            gen->gen_stat(stat_if->then);
+
+            gen->m_output << "skip" << gen->m_skip_counter++ << ":\n";
+        }
+
         void operator()(const NodeStatGoto* stat_goto) {}
         void operator()(const NodeStatInput* stat_input) {}
         void operator()(const NodeStatGosub* stat_gosub) {}
@@ -195,7 +230,10 @@ void Generator::gen_stat(NodeStat* stat) {
         void operator()(const NodeStatClear* stat_clear) {}
         void operator()(const NodeStatList* stat_list) {}
         void operator()(const NodeStatRun* stat_run) {}
-        void operator()(const NodeStatEnd* stat_end) {}
+
+        void operator()(const NodeStatEnd* stat_end) {
+            gen->m_output << "\tjmp exit\n";
+        }
     };
 
     std::visit(StatVisitor{.gen = this}, stat->com);
@@ -213,6 +251,7 @@ std::string Generator::gen_asm() {
         gen_line(line);
     }
 
+    m_output << "exit:\n";
     m_output << "\tmov rax, 60\n";
     m_output << "\tmov rdi, 0\n";
     m_output << "\tsyscall\n";
@@ -236,5 +275,6 @@ void Generator::clear() {
 
     extern_printf = false;
     m_data_counter = 1;
+    m_skip_counter = 1;
     m_stack_size = 0;
 }

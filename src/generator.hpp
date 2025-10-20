@@ -40,6 +40,7 @@ private:
     std::stringstream m_data;
 
     size_t m_data_counter = 1;
+    size_t m_skip_counter = 1;
 
     struct Var { size_t stack_loc; };
     size_t m_stack_size = 0;

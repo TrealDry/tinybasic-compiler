@@ -9,7 +9,7 @@ enum class TokenType {
     gosub, _return, clear, list, run, end,
     num, var, cr, open_paren, close_paren,
     eq, gt, lt, plus, minus, div, mul, com, 
-    str
+    str, none
 };
 
 struct Token {

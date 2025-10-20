@@ -1,0 +1,1 @@
+010 IF 5 + 5 > 1 THEN PRINT "yes!"
