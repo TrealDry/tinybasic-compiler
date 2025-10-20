@@ -8,7 +8,7 @@
 
 int Generator::write_str_in_data(std::string& str) {
     m_data << std::format(
-        "\tstr{} db \'{}\', 10\n",
+        "\tstr{} db \'{}\'\n",
         m_data_counter, str
     );
     m_data << std::format(
@@ -19,13 +19,18 @@ int Generator::write_str_in_data(std::string& str) {
     return m_data_counter++;
 }
 
-void Generator::print_number() {
+void Generator::print_number(bool last_print) {
     if (!extern_printf) {
         extern_printf = true;
-        m_data << "\tfrm db '%d', 10, 0\n";
+        m_data << "\tfrm db '%d', 0\n";
+        m_data << "\tfrmn db '%d', 10, 0\n";
     }
 
-    m_output << "\tmov rdi, frm\n";
+    if (last_print) {
+        m_output << "\tmov rdi, frmn\n";
+    } else {
+        m_output << "\tmov rdi, frm\n";
+    }
     pop("rsi");
     m_output << "\txor eax, eax\n";
     m_output << "\tcall printf\n";
@@ -77,6 +82,33 @@ void Generator::gen_term(NodeTerm* term) {
     std::visit(FactorVisitor{.gen = this}, term->fact);
 }
 
+void Generator::gen_term_op(NodeTermOp* term_op) {
+    struct TermVisitor {
+        Generator* gen;
+
+        void operator()(NodeTerm* term) {
+            gen->gen_term(term);
+        }
+
+        void operator()(NodeTermOp* term_op) {
+            gen->gen_term_op(term_op);
+        }
+    };
+
+    TermVisitor t{.gen = this};
+    std::visit(t, term_op->term);
+    std::visit(t, term_op->term2);
+
+    pop("rsi");
+    pop("rdi");
+    if (term_op->is_add) {
+        m_output << "\tadd rdi, rsi\n";
+    } else {
+        m_output << "\tsub rdi, rsi\n";
+    }
+    push("rdi");
+}
+
 void Generator::gen_expr(NodeExpr* expr) {
     struct ExprVisitor {
         Generator* gen;
@@ -86,7 +118,7 @@ void Generator::gen_expr(NodeExpr* expr) {
         }
 
         void operator()(NodeTermOp* term_op) {
-            ;
+            gen->gen_term_op(term_op);
         }
     };
 
@@ -103,12 +135,13 @@ void Generator::gen_stat(NodeStat* stat) {
 
             struct ExprListVisitor {
                 Generator* gen;
+                bool last_print;
                 bool simple_print_initialized = false;
 
                 void operator()(NodeExpr* expr) {
                     simple_print_initialized = false;
                     gen->gen_expr(expr);
-                    gen->print_number();
+                    gen->print_number(last_print);
                 }
                 void operator()(std::string& str) {
                     int str_index = gen->write_str_in_data(str);
@@ -121,11 +154,25 @@ void Generator::gen_stat(NodeStat* stat) {
                     gen->m_output << "\tmov rsi, str" << str_index << "\n";
                     gen->m_output << "\tmov rdx, len" << str_index << "\n";
                     gen->m_output << "\tsyscall\n";
+
+                    if (last_print) {  // print new line
+                        gen->m_output << "\tmov rsi, 10\n";
+                        gen->m_output << "\tmov rdx, 1\n";
+                        gen->m_output << "\tsyscall\n";
+                    }
                 }
             };
 
             for (auto& var: stat_print->exprs->list) {
-                std::visit(ExprListVisitor{.gen = gen}, var);
+                bool last_print = false;
+
+                if (&var == &stat_print->exprs->list.back()) {
+                    last_print = true;
+                }
+
+                std::visit(
+                    ExprListVisitor{.gen = gen, .last_print = last_print}, var
+                );
             }
         }
 
@@ -133,7 +180,7 @@ void Generator::gen_stat(NodeStat* stat) {
             auto ident = stat_let->var.name;
 
             if (gen->m_vars.contains(ident)) {
-
+                // TODO
             } else {
                 gen->m_vars.insert({ident, {.stack_loc = gen->m_stack_size}});
                 gen->gen_expr(stat_let->expr);

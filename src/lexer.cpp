@@ -41,7 +41,23 @@ Token Lexer::tokenize_str() {
     consume();  // skip first double quotes
 
     while (peek().has_value() && peek().value() != '"') {
-        buf.push_back(consume());
+        if (peek().value() == '\\' && peek(1).has_value()) {  // escape sequence
+            switch (peek(1).value()) {
+                case 'n':
+                    buf.push_back('\n');
+                    break;
+                case 't':
+                    buf.push_back('\t');
+                    break;
+                default:
+                    buf.push_back(consume());
+                    continue;
+            }
+            consume();
+            consume();
+        } else {
+            buf.push_back(consume());
+        }
     }
 
     return {.type = TokenType::str, .var = buf};

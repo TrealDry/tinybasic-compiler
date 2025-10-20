@@ -116,6 +116,12 @@ NodeStatLet* Parser::parse_stat_let() {
 
     stat_let->expr = parse_expr();
 
+    if (peek().value().type != TokenType::cr) {
+        throw std::runtime_error("Wrong constuction let!");
+    }
+
+    consume();
+
     return stat_let;
 }
 
@@ -146,6 +152,9 @@ NodeStatPrint* Parser::parse_stat_print() {
         }
     }
 
+    if (peek().has_value() && peek()->type == TokenType::cr)
+        consume();
+    
     return stat_print;
 }
 
@@ -172,6 +181,7 @@ NodeStat* Parser::parse_stat() {
         case TokenType::list: break;
         case TokenType::run: break;
         case TokenType::end: break;
+        case TokenType::cr:
         default: 
             throw std::runtime_error("Invalid command!");
     }

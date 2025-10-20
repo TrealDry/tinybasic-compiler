@@ -17,6 +17,7 @@ public:
     bool used_printf() { return extern_printf; }
 private:
     void gen_fact(NodeFactor* fact);
+    void gen_term_op(NodeTermOp* term_op);
     void gen_term(NodeTerm* term);
     void gen_expr(NodeExpr* expr);
     void gen_stat(NodeStat* stat);
@@ -28,11 +29,11 @@ private:
     }
     inline void pop(const std::string& reg) {
         m_output << "\tpop " << reg << "\n";
-        m_stack_size++;
+        m_stack_size--;
     }
 
     int write_str_in_data(std::string& str);
-    void print_number();
+    void print_number(bool last_print);
     bool extern_printf = false;
 
     std::stringstream m_output;
