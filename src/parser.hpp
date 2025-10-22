@@ -50,7 +50,7 @@ struct NodeExprList {
 };
 
 struct NodeVarList {
-    std::vector<NodeVar*> list;
+    std::vector<NodeVar> list;
 };
 
 enum class RelopType {
@@ -73,7 +73,9 @@ struct NodeStatIf {
 struct NodeStatGoto {
     NodeExpr* expr;
 };
-struct NodeStatInput {};
+struct NodeStatInput {
+    NodeVarList var_list;
+};
 struct NodeStatLet {
     NodeVar var;
     NodeExpr* expr;
@@ -120,7 +122,9 @@ private:
     NodeTerm* parse_term();
     NodeExpr* parse_expr();
     NodeRelop parse_relop();
+    NodeVarList parse_var_list();
     
+    NodeStatInput* parse_stat_input();
     NodeStatGoto* parse_stat_goto();
     NodeStatIf* parse_stat_if();
     NodeStatLet* parse_stat_let();

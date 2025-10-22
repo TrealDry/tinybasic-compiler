@@ -224,6 +224,30 @@ NodeStatIf* Parser::parse_stat_if() {
     return stat_if;
 }
 
+NodeVarList Parser::parse_var_list() {
+    NodeVarList var_list;
+
+    while (peek().has_value() && peek().value().type != TokenType::cr) {
+        if (peek().value().type == TokenType::var) {
+            var_list.list.emplace_back(consume().var.value());
+        } else if (peek().value().type == TokenType::com) {
+            consume();
+        } else {
+            throw std::runtime_error("Incorrect var list!");
+        }
+    }
+
+    return var_list;
+}
+
+NodeStatInput* Parser::parse_stat_input() {
+    auto stat_input = m_mem_pool.alloc<NodeStatInput>();
+
+    stat_input->var_list = parse_var_list();
+
+    return stat_input;
+}
+
 NodeStatGoto* Parser::parse_stat_goto() {
     auto stat_goto = m_mem_pool.alloc<NodeStatGoto>();
 
@@ -308,31 +332,19 @@ NodeStat* Parser::parse_stat() {
     auto token = consume();
 
     switch (token.type) {
-        case TokenType::print:
-            node_stat->com = Parser::parse_stat_print();
-            break;
-        case TokenType::_if:
-            node_stat->com = Parser::parse_stat_if();
-            break;
-        case TokenType::_goto:
-            node_stat->com = Parser::parse_stat_goto();
-            break;
-        case TokenType::input: break;
-        case TokenType::let: 
-            node_stat->com = Parser::parse_stat_let();
-            break;
-        case TokenType::gosub: break;
+        case TokenType::print:   node_stat->com = Parser::parse_stat_print(); break;
+        case TokenType::_if:     node_stat->com = Parser::parse_stat_if(); break;
+        case TokenType::_goto:   node_stat->com = Parser::parse_stat_goto(); break;
+        case TokenType::input:   node_stat->com = Parser::parse_stat_input(); break;
+        case TokenType::let:     node_stat->com = Parser::parse_stat_let(); break;
+        case TokenType::gosub:   break;
         case TokenType::_return: break;
-        case TokenType::clear: break;
-        case TokenType::list: break;
-        case TokenType::run: break;
-        case TokenType::end:
-            node_stat->com = m_mem_pool.alloc<NodeStatEnd>();
-            break;
-        case TokenType::cr:
-            return nullptr;
-        default: 
-            throw std::runtime_error("Invalid command!");
+        case TokenType::clear:   break;
+        case TokenType::list:    break;
+        case TokenType::run:     break;
+        case TokenType::end:     node_stat->com = m_mem_pool.alloc<NodeStatEnd>(); break;
+        case TokenType::cr:      return nullptr;
+        default:                 throw std::runtime_error("Invalid command!");
     }
 
     if (peek().has_value() && peek()->type == TokenType::cr)

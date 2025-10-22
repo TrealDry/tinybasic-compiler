@@ -1,3 +1,4 @@
+' original https://github.com/John-Robbins/tbp/blob/main/examples/fizzbuzz.tbp
 090 LET I=1
 100 IF (I/15)*15<>I THEN GOTO 200
 110 PRINT "FizzBuzz"

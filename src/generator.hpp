@@ -28,8 +28,12 @@ private:
 
     inline std::string get_var_pointer(size_t stack_loc) {
         std::stringstream var_pointer;
-        var_pointer << "QWORD [rbp-" << stack_loc * 8 << "]";
+        var_pointer << "[rbp-" << stack_loc * 8 << "]";
         return var_pointer.str();
+    }
+
+    inline std::string get_var_value(size_t stack_loc) {
+        return "QWORD " + get_var_pointer(stack_loc);
     }
 
     int write_str_in_data(std::string& str);

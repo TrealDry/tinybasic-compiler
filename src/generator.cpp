@@ -69,7 +69,7 @@ void Generator::gen_fact(NodeFactor* fact) {
 
             auto& v = gen->m_vars.at(var.name);
 
-            gen->m_output << "\tpush " << gen->get_var_pointer(v.stack_loc) << "\n";
+            gen->m_output << "\tpush " << gen->get_var_value(v.stack_loc) << "\n";
         }
 
         void operator()(NodeNum& num) {
@@ -228,7 +228,7 @@ void Generator::gen_stat(NodeStat* stat) {
                 
                 gen->m_output << "\tpop rax\n";
                 gen->m_output << "\tmov " \
-                    << gen->get_var_pointer(var.stack_loc) \
+                    << gen->get_var_value(var.stack_loc) \
                     << ", rax\n";
             } else {
                 gen->m_vars.insert({ident, {.stack_loc = gen->m_free_var_ptr++}});
@@ -236,7 +236,7 @@ void Generator::gen_stat(NodeStat* stat) {
                 
                 gen->m_output << "\tpop rax\n";
                 gen->m_output << "\tmov " \
-                    << gen->get_var_pointer(gen->m_free_var_ptr - 1) \
+                    << gen->get_var_value(gen->m_free_var_ptr - 1) \
                     << ", rax\n";
             }
         }
@@ -285,7 +285,19 @@ void Generator::gen_stat(NodeStat* stat) {
             gen->m_output << "\tjmp com" << line_num << "\n";
         }
 
-        void operator()(const NodeStatInput* stat_input) {}
+        void operator()(const NodeStatInput* stat_input) {
+            for (auto& var: stat_input->var_list.list) {
+                if (!gen->m_vars.contains(var.name)) 
+                    throw std::runtime_error("Var " + var.name + " does not exist!");
+                
+                gen->m_output << "\tmov rdi, frm\n";
+                gen->m_output << "\tlea rsi, " \
+                    << gen->get_var_pointer(gen->m_vars.at(var.name).stack_loc) \
+                    << "\n";
+                gen->m_output << "\tcall scanf\n";
+            }
+        }
+
         void operator()(const NodeStatGosub* stat_gosub) {}
         void operator()(const NodeStatReturn* stat_return) {}
         void operator()(const NodeStatClear* stat_clear) {}
@@ -337,7 +349,11 @@ std::string Generator::gen_asm() {
     m_output << "\tsyscall\n";
 
     std::string result = std::format(
-        "extern printf, putchar\nsection .data\n{}\nsection .text\n\tglobal _start\n\n_start:\n{}", 
+        "extern printf, putchar, scanf\n"
+        "section .data\n{}\n"
+        "section .text\n"
+        "\tglobal _start\n\n"
+        "_start:\n{}", 
         m_data.str(), m_output.str()
     );
 
