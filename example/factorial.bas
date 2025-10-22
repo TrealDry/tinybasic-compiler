@@ -1,0 +1,21 @@
+LET N = 0
+PRINT "enter number of cycles:"
+INPUT N
+
+GOTO 50
+
+001 LET A = N
+LET B = N - 1
+LET R = A * B
+RETURN
+
+005 GOTO 50
+
+010 LET B = B - 1
+020 IF B = 0 THEN RETURN
+030 LET R = R * B
+040 GOTO 10
+
+050 GOSUB 1
+060 GOSUB 10
+070 PRINT R

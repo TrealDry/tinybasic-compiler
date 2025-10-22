@@ -84,10 +84,10 @@ struct NodeStatGosub {
     NodeExpr* expr;
 };
 struct NodeStatReturn {};
-struct NodeStatClear {};
 struct NodeStatEnd {};
 
 // outsiders
+struct NodeStatClear {};
 struct NodeStatList {};
 struct NodeStatRun {};
 
