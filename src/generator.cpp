@@ -6,6 +6,21 @@
 #include "generator.hpp"
 #include "parser.hpp"
 
+void Generator::remove_extra_zeros(std::string& str) {
+    while (true) {
+        if (str.length() == 0) {
+            str = '0';
+            return;
+        }
+
+        if (str.at(0) == '0') {
+            str.erase(0, 1);
+        } else {
+            return;
+        }
+    }
+}
+
 int Generator::write_str_in_data(std::string& str) {
     m_data << std::format(
         "\tstr{} db \'{}\'\n",
@@ -31,7 +46,8 @@ void Generator::print_number(bool last_print) {
     } else {
         m_output << "\tmov rdi, frm\n";
     }
-    pop("rsi");
+
+    m_output << "\tpop rsi\n";
     m_output << "\txor eax, eax\n";
     m_output << "\tcall printf\n";
 }
@@ -41,17 +57,17 @@ void Generator::gen_fact(NodeFactor* fact) {
         Generator* gen;
 
         void operator()(NodeVar& var) {
+            if (!gen->m_vars.contains(var.name))
+                throw std::runtime_error("Var " + var.name + " has not been initialized!");
+
             auto& v = gen->m_vars.at(var.name);
 
-            std::stringstream reg;
-            reg << "QWORD [rsp+" << (gen->m_stack_size - v.stack_loc - 1) * 8 << "]";
-
-            gen->push(reg.str());
+            gen->m_output << "\tpush " << gen->get_var_pointer(v.stack_loc) << "\n";
         }
 
         void operator()(NodeNum& num) {
             gen->m_output << "\tmov rax, " << num.num << "\n";
-            gen->push("rax");
+            gen->m_output << "\tpush rax\n";
         }
 
         void operator()(NodeTerm* term) {
@@ -99,14 +115,16 @@ void Generator::gen_term_op(NodeTermOp* term_op) {
     std::visit(t, term_op->term);
     std::visit(t, term_op->term2);
 
-    pop("rsi");
-    pop("rdi");
+    m_output << "\tpop rsi\n";
+    m_output << "\tpop rdi\n";
+
     if (term_op->is_add) {
         m_output << "\tadd rdi, rsi\n";
     } else {
         m_output << "\tsub rdi, rsi\n";
     }
-    push("rdi");
+
+    m_output << "\tpush rdi\n";
 }
 
 void Generator::gen_expr(NodeExpr* expr) {
@@ -181,10 +199,22 @@ void Generator::gen_stat(NodeStat* stat) {
             auto ident = stat_let->var.name;
 
             if (gen->m_vars.contains(ident)) {
-                // TODO
-            } else {
-                gen->m_vars.insert({ident, {.stack_loc = gen->m_stack_size}});
+                auto var = gen->m_vars.at(ident);
+
                 gen->gen_expr(stat_let->expr);
+                
+                gen->m_output << "\tpop rax\n";
+                gen->m_output << "\tmov " \
+                    << gen->get_var_pointer(var.stack_loc) \
+                    << ", rax\n";
+            } else {
+                gen->m_vars.insert({ident, {.stack_loc = gen->m_free_var_ptr++}});
+                gen->gen_expr(stat_let->expr);
+                
+                gen->m_output << "\tpop rax\n";
+                gen->m_output << "\tmov " \
+                    << gen->get_var_pointer(gen->m_free_var_ptr - 1) \
+                    << ", rax\n";
             }
         }
 
@@ -208,11 +238,11 @@ void Generator::gen_stat(NodeStat* stat) {
             }
 
             if (!reverse_reg) {
-                gen->pop("rax");
-                gen->pop("rbx");
+                gen->m_output << "\tpop rax\n";
+                gen->m_output << "\tpop rbx\n";
             } else {
-                gen->pop("rbx");
-                gen->pop("rax");
+                gen->m_output << "\tpop rbx\n";
+                gen->m_output << "\tpop rax\n";
             }
 
             gen->m_output << "\tcmp rax, rbx\n";
@@ -223,7 +253,19 @@ void Generator::gen_stat(NodeStat* stat) {
             gen->m_output << "skip" << gen->m_skip_counter++ << ":\n";
         }
 
-        void operator()(const NodeStatGoto* stat_goto) {}
+        void operator()(const NodeStatGoto* stat_goto) {
+            std::string line_num = std::get<1>(
+                std::get<0>(
+                    std::get<1>(
+                        stat_goto->expr->term
+                    )->fact
+                )->body
+            ).num;
+
+            gen->remove_extra_zeros(line_num);
+            gen->m_output << "\tjmp com" << line_num << "\n";
+        }
+
         void operator()(const NodeStatInput* stat_input) {}
         void operator()(const NodeStatGosub* stat_gosub) {}
         void operator()(const NodeStatReturn* stat_return) {}
@@ -241,17 +283,32 @@ void Generator::gen_stat(NodeStat* stat) {
 
 void Generator::gen_line(NodeLine* line) {
     // TODO line->num
+    if (line->num.has_value()) {
+        std::string num = line->num.value().num;
+        remove_extra_zeros(num);
+
+        m_output << "com" << num << ":\n";
+    }
+
     gen_stat(line->stat);
 }
 
 std::string Generator::gen_asm() {
     clear();
 
+    m_output << "\tpush rbp\n";
+    m_output << "\tmov rbp, rsp\n";
+    m_output << "\tsub rsp, " << m_unique_let * 8 << "\n";
+
     for (auto line: m_node_prog.lines) {
         gen_line(line);
     }
 
     m_output << "exit:\n";
+
+    m_output << "\tmov rsp, rbp\n";
+    m_output << "\tpop rbp\n\n";
+
     m_output << "\tmov rax, 60\n";
     m_output << "\tmov rdi, 0\n";
     m_output << "\tsyscall\n";
@@ -276,5 +333,5 @@ void Generator::clear() {
     extern_printf = false;
     m_data_counter = 1;
     m_skip_counter = 1;
-    m_stack_size = 0;
+    m_free_var_ptr = 0;
 }

@@ -1,0 +1,5 @@
+010 LET A = 0
+020 PRINT "Cycle test!"
+030 LET A = A + 1
+040 PRINT "A = ", A
+050 IF A < 10 THEN GOTO 30

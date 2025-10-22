@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -69,7 +70,9 @@ struct NodeStatIf {
     NodeRelop relop;
     NodeStat* then;
 };
-struct NodeStatGoto {};
+struct NodeStatGoto {
+    NodeExpr* expr;
+};
 struct NodeStatInput {};
 struct NodeStatLet {
     NodeVar var;
@@ -105,8 +108,11 @@ public:
     Parser(std::vector<Token>& tokens) : m_tokens(std::move(tokens)), m_mem_pool() {}
 
     NodeProg gen_prog();
+    inline size_t get_unique_let() { return m_unique_let.size(); }
 
 private:
+    void clear();
+
     std::optional<Token> peek(int offset = 0);
     Token consume();
 
@@ -115,6 +121,7 @@ private:
     NodeExpr* parse_expr();
     NodeRelop parse_relop();
     
+    NodeStatGoto* parse_stat_goto();
     NodeStatIf* parse_stat_if();
     NodeStatLet* parse_stat_let();
     NodeStatPrint* parse_stat_print();
@@ -125,4 +132,6 @@ private:
     MemoryPool m_mem_pool;
     std::vector<Token> m_tokens;
     size_t m_index = 0;
+
+    std::unordered_set<char> m_unique_let;
 };

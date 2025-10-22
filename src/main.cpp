@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     std::fstream output("out.asm", std::ios::out);
 
-    Generator g{node_prog};
+    Generator g{node_prog, p.get_unique_let()};
     output << g.gen_asm();
     output.close();
 

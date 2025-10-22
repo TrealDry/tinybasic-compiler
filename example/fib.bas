@@ -1,0 +1,14 @@
+005 LET A = 0
+006 LET B = 0 ' 2
+010 GOTO 1000  ' start program
+015 LET B = B - 1
+020 LET C = A  ' multiply A * B. result in A
+030 IF B < 1 THEN GOTO 2000
+040 LET A = A + C
+050 LET B = B - 1
+060 GOTO 30
+1000 LET A = 8
+1010 LET B = 9
+1020 GOTO 15
+2000 PRINT A
+2010 END

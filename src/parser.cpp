@@ -67,11 +67,7 @@ NodeExpr* Parser::parse_expr() {
         {
             first_term = parse_term();
 
-            if (!peek().has_value()) {
-                expr->term = first_term;
-                return expr;
-            } else if (peek().value().type == TokenType::cr) {
-                consume();
+            if (!peek().has_value() || peek().value().type == TokenType::cr) {
                 expr->term = first_term;
                 return expr;
             }
@@ -173,6 +169,29 @@ NodeStatIf* Parser::parse_stat_if() {
     return stat_if;
 }
 
+NodeStatGoto* Parser::parse_stat_goto() {
+    auto stat_goto = m_mem_pool.alloc<NodeStatGoto>();
+
+    if (!peek().has_value() || peek().value().type == TokenType::cr)
+        throw std::runtime_error("Goto expr is empty!");
+
+    stat_goto->expr = parse_expr();
+
+    if (stat_goto->expr->term.index() == 2)
+        throw std::runtime_error("Goto expr is not constant!");
+
+    auto term = std::get<1>(stat_goto->expr->term);
+    if (term->fact.index() == 1)
+        throw std::runtime_error("Goto expr is not constant!");
+
+    auto fact = std::get<0>(term->fact);
+
+    if (fact->body.index() != 1)
+        throw std::runtime_error("Goto expr is not constant!");
+
+    return stat_goto;
+}
+
 NodeStatLet* Parser::parse_stat_let() {
     auto stat_let = m_mem_pool.alloc<NodeStatLet>();
 
@@ -183,6 +202,7 @@ NodeStatLet* Parser::parse_stat_let() {
     if (var_name.length() != 1 || !std::isupper(var_name.at(0)))
         throw std::runtime_error("Invalid var name!");
     
+    m_unique_let.insert(var_name.at(0));
     stat_let->var = NodeVar{.name = var_name};
 
     if (!peek().has_value() || peek().value().type != TokenType::eq)
@@ -191,10 +211,6 @@ NodeStatLet* Parser::parse_stat_let() {
     consume();
 
     stat_let->expr = parse_expr();
-
-    if (peek().value().type != TokenType::cr) {
-        throw std::runtime_error("Wrong constuction let!");
-    }
 
     return stat_let;
 }
@@ -243,7 +259,9 @@ NodeStat* Parser::parse_stat() {
         case TokenType::_if:
             node_stat->com = Parser::parse_stat_if();
             break;
-        case TokenType::_goto: break;
+        case TokenType::_goto:
+            node_stat->com = Parser::parse_stat_goto();
+            break;
         case TokenType::input: break;
         case TokenType::let: 
             node_stat->com = Parser::parse_stat_let();
@@ -256,6 +274,7 @@ NodeStat* Parser::parse_stat() {
         case TokenType::end:
             node_stat->com = m_mem_pool.alloc<NodeStatEnd>();
             break;
+        case TokenType::cr: break;
         default: 
             throw std::runtime_error("Invalid command!");
     }
@@ -281,6 +300,9 @@ NodeLine* Parser::parse_line() {
 
 NodeProg Parser::gen_prog() {
     NodeProg prog;
+
+    m_index = 0;
+    m_unique_let.clear();
 
     while (peek().has_value()) {
         prog.lines.push_back(parse_line());
