@@ -274,7 +274,8 @@ NodeStat* Parser::parse_stat() {
         case TokenType::end:
             node_stat->com = m_mem_pool.alloc<NodeStatEnd>();
             break;
-        case TokenType::cr: break;
+        case TokenType::cr:
+            return nullptr;
         default: 
             throw std::runtime_error("Invalid command!");
     }
@@ -291,11 +292,16 @@ NodeLine* Parser::parse_line() {
     if (peek().value().type == TokenType::num) {
         auto token = consume();
         line->num = NodeNum{.num = token.var.value()};
+    } else if (peek().value().type == TokenType::cr) {
+        return nullptr;
     }
 
-    line->stat = parse_stat();
-
-    return line;
+    if (auto stat = parse_stat()) {
+        line->stat = stat;
+        return line;
+    } else {
+        return nullptr;
+    }
 }
 
 NodeProg Parser::gen_prog() {
@@ -305,7 +311,10 @@ NodeProg Parser::gen_prog() {
     m_unique_let.clear();
 
     while (peek().has_value()) {
-        prog.lines.push_back(parse_line());
+        if (auto line = parse_line()) 
+            prog.lines.push_back(line);
+        else
+            consume();
     }
 
     return prog;
