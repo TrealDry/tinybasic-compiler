@@ -13,15 +13,16 @@ public:
         : m_node_prog(std::move(node_prog)), m_unique_let(unique_let) {}
 
     std::string gen_asm();
-
-    bool used_printf() { return extern_printf; }
 private:
     void remove_extra_zeros(std::string& str);
 
+    void gen_fact_op(NodeFactorOp* fact_op);
     void gen_fact(NodeFactor* fact);
+
     void gen_term_op(NodeTermOp* term_op);
     void gen_term(NodeTerm* term);
     void gen_expr(NodeExpr* expr);
+    
     void gen_stat(NodeStat* stat);
     void gen_line(NodeLine* line);
 
@@ -33,7 +34,7 @@ private:
 
     int write_str_in_data(std::string& str);
     void print_number(bool last_print);
-    bool extern_printf = false;
+    void print_str(std::string& str, bool last_print);
 
     std::stringstream m_output;
     std::stringstream m_data;

@@ -1,17 +1,12 @@
-005 LET A = 0
-006 LET B = 0 ' 2
+010 LET A = 0
+020 LET B = 1
+030 LET C = 0
+040 LET N = 50
+045 LET M = N
 
-010 GOTO 1000  ' start program
-015 LET B = B - 1
-020 LET C = A  ' multiply A * B. result in A
-030 IF B < 1 THEN GOTO 2000
-040 LET A = A + C
-050 LET B = B - 1
-
-060 GOTO 30
-1000 LET A = 8
-1010 LET B = 9
-
-1020 GOTO 15
-2000 PRINT A
-2010 END
+050 LET C = A + B
+060 LET A = B
+070 LET B = C
+080 LET N = N - 1
+090 PRINT "fib ", M - N + 2, " = ", C
+100 IF N <> 0 THEN GOTO 50

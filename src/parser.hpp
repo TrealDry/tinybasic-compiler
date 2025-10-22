@@ -26,12 +26,12 @@ struct NodeFactor {
 
 struct NodeFactorOp {
     std::variant<NodeFactor*, NodeFactorOp*> fact;
-    NodeFactor* fact2;
+    std::variant<NodeFactor*> fact2;
     bool is_mul;  // false - div, true - mul
 };
 
 struct NodeTerm {
-    std::variant<NodeFactor*, NodeFactorOp*> fact;
+    std::variant<std::monostate, NodeFactor*, NodeFactorOp*> fact;
     std::optional<bool> is_negative;
 };
 

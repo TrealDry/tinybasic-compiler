@@ -23,7 +23,7 @@ void Generator::remove_extra_zeros(std::string& str) {
 
 int Generator::write_str_in_data(std::string& str) {
     m_data << std::format(
-        "\tstr{} db \'{}\'\n",
+        "\tstr{} db \'{}\', 0\n",
         m_data_counter, str
     );
     m_data << std::format(
@@ -35,12 +35,6 @@ int Generator::write_str_in_data(std::string& str) {
 }
 
 void Generator::print_number(bool last_print) {
-    if (!extern_printf) {
-        extern_printf = true;
-        m_data << "\tfrm db '%d', 0\n";
-        m_data << "\tfrmn db '%d', 10, 0\n";
-    }
-
     if (last_print) {
         m_output << "\tmov rdi, frmn\n";
     } else {
@@ -50,6 +44,19 @@ void Generator::print_number(bool last_print) {
     m_output << "\tpop rsi\n";
     m_output << "\txor eax, eax\n";
     m_output << "\tcall printf\n";
+}
+
+void Generator::print_str(std::string& str, bool last_print) {
+    int str_index = write_str_in_data(str);
+    
+    m_output << "\tmov rdi, str" << str_index << "\n";
+    m_output << "\txor eax, eax\n";
+    m_output << "\tcall printf\n";
+
+    if (last_print) {
+        m_output << "\tmov rdi, 10\n";
+        m_output << "\tcall putchar\n";
+    }
 }
 
 void Generator::gen_fact(NodeFactor* fact) {
@@ -71,19 +78,19 @@ void Generator::gen_fact(NodeFactor* fact) {
         }
 
         void operator()(NodeTerm* term) {
-            ;
+            gen->gen_term(term);
         }
 
         void operator()(NodeTermOp* term_op) {
-            ;
+            gen->gen_term_op(term_op);
         }
     };
 
     std::visit(FactorVisitor{.gen = this}, fact->body);
 }
 
-void Generator::gen_term(NodeTerm* term) {
-    struct FactorVisitor {
+void Generator::gen_fact_op(NodeFactorOp* fact_op) {
+    struct FactVisitor {
         Generator* gen;
 
         void operator()(NodeFactor* fact) {
@@ -91,7 +98,39 @@ void Generator::gen_term(NodeTerm* term) {
         }
 
         void operator()(NodeFactorOp* fact_op) {
-            ;
+            gen->gen_fact_op(fact_op);
+        }
+    };
+
+    FactVisitor f{.gen = this};
+    std::visit(f, fact_op->fact);
+    std::visit(f, fact_op->fact2);
+
+    m_output << "\tpop rbx\n";
+    m_output << "\tpop rax\n";
+
+    if (fact_op->is_mul) {
+        m_output << "\timul rbx\n";
+    } else {
+        m_output << "\tcqo\n";
+        m_output << "\tidiv rbx\n";
+    }
+
+    m_output << "\tpush rax\n";
+}
+
+void Generator::gen_term(NodeTerm* term) {
+    struct FactorVisitor {
+        Generator* gen;
+
+        void operator()(std::monostate& mono) {}
+
+        void operator()(NodeFactor* fact) {
+            gen->gen_fact(fact);
+        }
+
+        void operator()(NodeFactorOp* fact_op) {
+            gen->gen_fact_op(fact_op);
         }
     };
 
@@ -162,23 +201,7 @@ void Generator::gen_stat(NodeStat* stat) {
                     gen->print_number(last_print);
                 }
                 void operator()(std::string& str) {
-                    int str_index = gen->write_str_in_data(str);
-
-                    gen->m_output << "\tmov rax, 1\n";
-                    gen->m_output << "\tmov rdi, 1\n";
-                    gen->m_output << "\tmov rsi, str" << str_index << "\n";
-                    gen->m_output << "\tmov rdx, len" << str_index << "\n";
-                    gen->m_output << "\tsyscall\n";
-
-                    if (last_print) {  // print new line
-                        gen->m_output << "\tmov rax, 1\n";
-                        gen->m_output << "\tmov rdi, 1\n";
-                        gen->m_output << "\tpush 10\n";
-                        gen->m_output << "\tmov rsi, rsp\n";
-                        gen->m_output << "\tmov rdx, 1\n";
-                        gen->m_output << "\tsyscall\n";
-                        gen->m_output << "\tadd rsp, 8\n";
-                    }
+                    gen->print_str(str, last_print);
                 }
             };
 
@@ -255,11 +278,7 @@ void Generator::gen_stat(NodeStat* stat) {
 
         void operator()(const NodeStatGoto* stat_goto) {
             std::string line_num = std::get<1>(
-                std::get<0>(
-                    std::get<1>(
-                        stat_goto->expr->term
-                    )->fact
-                )->body
+                std::get<1>(std::get<1>(stat_goto->expr->term)->fact)->body
             ).num;
 
             gen->remove_extra_zeros(line_num);
@@ -300,6 +319,10 @@ std::string Generator::gen_asm() {
     m_output << "\tmov rbp, rsp\n";
     m_output << "\tsub rsp, " << m_unique_let * 8 << "\n";
 
+    // for print nums
+    m_data << "\tfrm db '%lu', 0\n";
+    m_data << "\tfrmn db '%lu', 10, 0\n";
+
     for (auto line: m_node_prog.lines) {
         gen_line(line);
     }
@@ -314,13 +337,9 @@ std::string Generator::gen_asm() {
     m_output << "\tsyscall\n";
 
     std::string result = std::format(
-        "section .data\n{}\nsection .text\n\tglobal _start\n\n_start:\n{}", 
+        "extern printf, putchar\nsection .data\n{}\nsection .text\n\tglobal _start\n\n_start:\n{}", 
         m_data.str(), m_output.str()
     );
-
-    if (extern_printf) {
-        result = "extern printf\n" + result;
-    }
 
     return result;
 }
@@ -330,7 +349,6 @@ void Generator::clear() {
     m_data.clear();
     m_vars.clear();
 
-    extern_printf = false;
     m_data_counter = 1;
     m_skip_counter = 1;
     m_free_var_ptr = 0;

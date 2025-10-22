@@ -20,7 +20,22 @@ NodeFactor* Parser::parse_factor() {
             break;
         case TokenType::open_paren:
             consume();
-            fact->body = std::get<1>(parse_expr()->term);
+
+            struct FactorVisitor {
+                NodeFactor* fact;
+
+                void operator()(std::monostate& mono) {}
+
+                void operator()(NodeTerm* term) { 
+                    fact->body = term; 
+                }
+
+                void operator()(NodeTermOp* term_op) { 
+                    fact->body = term_op; 
+                }
+            };
+
+            std::visit(FactorVisitor{.fact=fact}, parse_expr()->term);
 
             if (!peek().has_value() || \
                 peek().value().type != TokenType::close_paren)
@@ -40,8 +55,50 @@ NodeTerm* Parser::parse_term() {
         throw std::runtime_error("Term is empty!");
 
     auto term = m_mem_pool.alloc<NodeTerm>();
+    term->fact = std::monostate{};
 
-    term->fact = parse_factor();
+    while (peek().has_value() && peek().value().type != TokenType::cr) {
+        bool fact_op_exits = false;
+        NodeFactor* first_fact;
+
+        if (peek().value().type == TokenType::mul || peek().value().type == TokenType::div) {
+            fact_op_exits = true;
+        } else if (peek().value().type == TokenType::num || \
+                   peek().value().type == TokenType::var || \
+                   peek().value().type == TokenType::open_paren) 
+        {
+            first_fact = parse_factor();
+
+            if (!peek().has_value() || peek().value().type == TokenType::cr) {
+                term->fact = first_fact;
+                return term;
+            }
+
+            if (peek().value().type != TokenType::mul && peek().value().type != TokenType::div) {
+                if (term->fact.index() == 0)
+                    term->fact = first_fact;
+
+                return term;
+            }
+        } else {
+            return term;
+        }
+
+        auto fact_op = m_mem_pool.alloc<NodeFactorOp>();
+        auto op = consume();
+
+        NodeFactor* second_fact = parse_factor();
+
+        fact_op->is_mul = op.type == TokenType::mul;
+        if (fact_op_exits) {
+            fact_op->fact = std::get<2>(term->fact);
+        } else {
+            fact_op->fact = first_fact;
+        }
+        fact_op->fact2 = second_fact;
+
+        term->fact = fact_op;
+    }
     
     return term;
 }
@@ -61,9 +118,7 @@ NodeExpr* Parser::parse_expr() {
             term_op_exits = true;
         } else if (peek().value().type == TokenType::num || \
                    peek().value().type == TokenType::var || \
-                   peek().value().type == TokenType::open_paren || \
-                   peek().value().type == TokenType::mul || \
-                   peek().value().type == TokenType::div) 
+                   peek().value().type == TokenType::open_paren) 
         {
             first_term = parse_term();
 
@@ -89,7 +144,7 @@ NodeExpr* Parser::parse_expr() {
 
         term_op->is_add = op.type == TokenType::plus;
         if (term_op_exits) {
-            term_op->term = std::get<1>(expr->term);
+            term_op->term = std::get<2>(expr->term);
         } else {
             term_op->term = first_term;
         }
@@ -181,10 +236,10 @@ NodeStatGoto* Parser::parse_stat_goto() {
         throw std::runtime_error("Goto expr is not constant!");
 
     auto term = std::get<1>(stat_goto->expr->term);
-    if (term->fact.index() == 1)
+    if (term->fact.index() != 1)
         throw std::runtime_error("Goto expr is not constant!");
 
-    auto fact = std::get<0>(term->fact);
+    auto fact = std::get<1>(term->fact);
 
     if (fact->body.index() != 1)
         throw std::runtime_error("Goto expr is not constant!");
