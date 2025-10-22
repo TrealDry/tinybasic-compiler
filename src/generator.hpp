@@ -47,7 +47,7 @@ private:
     size_t m_skip_counter = 1;
 
     size_t m_unique_let = 0;
-    size_t m_free_var_ptr = 0;
+    size_t m_free_var_ptr = 1;
     struct Var { size_t stack_loc; };
     std::unordered_map<std::string, Var> m_vars;
 

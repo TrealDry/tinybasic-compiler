@@ -153,6 +153,9 @@ NodeExpr* Parser::parse_expr() {
         expr->term = term_op;
     }
 
+    if (expr->term.index() == 0)
+        throw std::runtime_error("Expression (tokens) is empty!");
+
     return expr;
 }
 
@@ -248,28 +251,40 @@ NodeStatInput* Parser::parse_stat_input() {
     return stat_input;
 }
 
-NodeStatGoto* Parser::parse_stat_goto() {
-    auto stat_goto = m_mem_pool.alloc<NodeStatGoto>();
+NodeExpr* Parser::parse_const_expr() {
+    auto expr = parse_expr();
 
-    if (!peek().has_value() || peek().value().type == TokenType::cr)
-        throw std::runtime_error("Goto expr is empty!");
+    if (expr->term.index() == 2)
+        throw std::runtime_error("Expr (for goto, gosub) is not constant!");
 
-    stat_goto->expr = parse_expr();
-
-    if (stat_goto->expr->term.index() == 2)
-        throw std::runtime_error("Goto expr is not constant!");
-
-    auto term = std::get<1>(stat_goto->expr->term);
+    auto term = std::get<1>(expr->term);
     if (term->fact.index() != 1)
-        throw std::runtime_error("Goto expr is not constant!");
+        throw std::runtime_error("Expr (for goto, gosub) is not constant!");
 
     auto fact = std::get<1>(term->fact);
 
     if (fact->body.index() != 1)
-        throw std::runtime_error("Goto expr is not constant!");
+        throw std::runtime_error("Expr (for goto, gosub) is not constant!");
+
+    return expr;
+}
+
+NodeStatGoto* Parser::parse_stat_goto() {
+    auto stat_goto = m_mem_pool.alloc<NodeStatGoto>();
+
+    stat_goto->expr = parse_const_expr();
 
     return stat_goto;
 }
+
+NodeStatGosub* Parser::parse_stat_gosub() {
+    auto stat_gosub = m_mem_pool.alloc<NodeStatGosub>();
+
+    stat_gosub->expr = parse_const_expr();
+
+    return stat_gosub;
+}
+
 
 NodeStatLet* Parser::parse_stat_let() {
     auto stat_let = m_mem_pool.alloc<NodeStatLet>();
@@ -337,12 +352,12 @@ NodeStat* Parser::parse_stat() {
         case TokenType::_goto:   node_stat->com = Parser::parse_stat_goto(); break;
         case TokenType::input:   node_stat->com = Parser::parse_stat_input(); break;
         case TokenType::let:     node_stat->com = Parser::parse_stat_let(); break;
-        case TokenType::gosub:   break;
-        case TokenType::_return: break;
-        case TokenType::clear:   break;
+        case TokenType::gosub:   node_stat->com = Parser::parse_stat_gosub(); break;
+        case TokenType::_return: node_stat->com = m_mem_pool.alloc<NodeStatReturn>(); break;
+        case TokenType::clear:   node_stat->com = m_mem_pool.alloc<NodeStatClear>(); break;
+        case TokenType::end:     node_stat->com = m_mem_pool.alloc<NodeStatEnd>(); break;
         case TokenType::list:    break;
         case TokenType::run:     break;
-        case TokenType::end:     node_stat->com = m_mem_pool.alloc<NodeStatEnd>(); break;
         case TokenType::cr:      return nullptr;
         default:                 throw std::runtime_error("Invalid command!");
     }

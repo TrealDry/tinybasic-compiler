@@ -80,12 +80,16 @@ struct NodeStatLet {
     NodeVar var;
     NodeExpr* expr;
 };
-struct NodeStatGosub {};
+struct NodeStatGosub {
+    NodeExpr* expr;
+};
 struct NodeStatReturn {};
 struct NodeStatClear {};
+struct NodeStatEnd {};
+
+// outsiders
 struct NodeStatList {};
 struct NodeStatRun {};
-struct NodeStatEnd {};
 
 struct NodeStat {
     std::variant<NodeStatPrint*, NodeStatIf*, \
@@ -123,12 +127,14 @@ private:
     NodeExpr* parse_expr();
     NodeRelop parse_relop();
     NodeVarList parse_var_list();
+    NodeExpr* parse_const_expr();
     
-    NodeStatInput* parse_stat_input();
-    NodeStatGoto* parse_stat_goto();
-    NodeStatIf* parse_stat_if();
-    NodeStatLet* parse_stat_let();
     NodeStatPrint* parse_stat_print();
+    NodeStatInput* parse_stat_input();
+    NodeStatGosub* parse_stat_gosub();
+    NodeStatGoto* parse_stat_goto();
+    NodeStatLet* parse_stat_let();
+    NodeStatIf* parse_stat_if();
     NodeStat* parse_stat();
 
     NodeLine* parse_line();

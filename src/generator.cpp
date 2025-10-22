@@ -298,8 +298,30 @@ void Generator::gen_stat(NodeStat* stat) {
             }
         }
 
-        void operator()(const NodeStatGosub* stat_gosub) {}
-        void operator()(const NodeStatReturn* stat_return) {}
+        void operator()(const NodeStatGosub* stat_gosub) {
+            std::string line_num = std::get<1>(
+                std::get<1>(std::get<1>(stat_gosub->expr->term)->fact)->body
+            ).num;
+
+            gen->remove_extra_zeros(line_num);
+
+            
+            gen->m_output << "\tmov rdi, [cntr]\n";
+            gen->m_output << "\tinc rdi\n";
+            gen->m_output << "\tmov [cntr], rdi\n";
+            gen->m_output << "\tcall com" << line_num << "\n";
+        }
+
+        void operator()(const NodeStatReturn* stat_return) {
+            gen->m_output << "\tmov rdi, [cntr]\n";
+            gen->m_output << "\ttest rdi, rdi\n";
+            gen->m_output << "\tjz skip" << gen->m_skip_counter << "\n";
+            gen->m_output << "\tdec rdi\n";
+            gen->m_output << "\tmov [cntr], rdi\n";
+            gen->m_output << "\tret\n";
+            gen->m_output << "skip" << gen->m_skip_counter++ << ":\n";
+        }
+
         void operator()(const NodeStatClear* stat_clear) {}
         void operator()(const NodeStatList* stat_list) {}
         void operator()(const NodeStatRun* stat_run) {}
@@ -313,7 +335,6 @@ void Generator::gen_stat(NodeStat* stat) {
 }
 
 void Generator::gen_line(NodeLine* line) {
-    // TODO line->num
     if (line->num.has_value()) {
         std::string num = line->num.value().num;
         remove_extra_zeros(num);
@@ -329,11 +350,14 @@ std::string Generator::gen_asm() {
 
     m_output << "\tpush rbp\n";
     m_output << "\tmov rbp, rsp\n";
-    m_output << "\tsub rsp, " << m_unique_let * 8 << "\n";
+    if (m_unique_let)
+        m_output << "\tsub rsp, " << (m_unique_let + 1) * 8 << "\n";
 
     // for print nums
-    m_data << "\tfrm db '%lu', 0\n";
-    m_data << "\tfrmn db '%lu', 10, 0\n";
+    m_data << "\tfrm db '%li', 0\n";
+    m_data << "\tfrmn db '%li', 10, 0\n";
+
+    m_data << "\tcntr dq 0\n";
 
     for (auto line: m_node_prog.lines) {
         gen_line(line);
@@ -367,5 +391,5 @@ void Generator::clear() {
 
     m_data_counter = 1;
     m_skip_counter = 1;
-    m_free_var_ptr = 0;
+    m_free_var_ptr = 1;
 }
