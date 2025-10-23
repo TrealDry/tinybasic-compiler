@@ -8,10 +8,15 @@
 #include "generator.hpp"
 
 int main(int argc, char* argv[]) {
-    if (argc != 2) {
+    if (argc < 2) {
         std::cerr << "Incorrect usage. Correct usage is...\n";
         std::cerr << "tinyb <file.bas>\n";
         return EXIT_FAILURE;
+    }
+
+    bool no_new_line = false;
+    if (argc > 2 && std::string(argv[2]) == "no-nl") {
+        no_new_line = true;
     }
 
     std::fstream input(argv[1], std::ios::in);
@@ -29,7 +34,7 @@ int main(int argc, char* argv[]) {
 
     std::fstream output("out.asm", std::ios::out);
 
-    Generator g{node_prog, p.get_unique_let()};
+    Generator g{node_prog, p.get_unique_let(), no_new_line};
     output << g.gen_asm();
     output.close();
 

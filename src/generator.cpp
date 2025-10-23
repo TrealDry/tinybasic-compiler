@@ -22,10 +22,18 @@ void Generator::remove_extra_zeros(std::string& str) {
 }
 
 int Generator::write_str_in_data(std::string& str) {
-    m_data << std::format(
+    if (str.size() == 1 && str.at(0) == '\n') {
+        m_data << std::format(
+            "\tstr{} db 10, 0\n",
+            m_data_counter, str
+        );
+    } else {
+        m_data << std::format(
         "\tstr{} db \'{}\', 0\n",
-        m_data_counter, str
-    );
+            m_data_counter, str
+        );
+    }
+
     m_data << std::format(
         "\tlen{} equ $ - str{}\n",
         m_data_counter, m_data_counter
@@ -208,7 +216,7 @@ void Generator::gen_stat(NodeStat* stat) {
             for (auto& var: stat_print->exprs->list) {
                 bool last_print = false;
 
-                if (&var == &stat_print->exprs->list.back()) {
+                if (&var == &stat_print->exprs->list.back() && !gen->m_no_new_line) {
                     last_print = true;
                 }
 

@@ -9,8 +9,8 @@
 
 class Generator {
 public:
-    explicit Generator(NodeProg& node_prog, size_t unique_let) 
-        : m_node_prog(std::move(node_prog)), m_unique_let(unique_let) {}
+    explicit Generator(NodeProg& node_prog, size_t unique_let, bool no_new_line) 
+        : m_node_prog(std::move(node_prog)), m_unique_let(unique_let), m_no_new_line(no_new_line) {}
 
     std::string gen_asm();
 private:
@@ -50,6 +50,8 @@ private:
     size_t m_free_var_ptr = 1;
     struct Var { size_t stack_loc; };
     std::unordered_map<std::string, Var> m_vars;
+
+    bool m_no_new_line = false;
 
     NodeProg m_node_prog;
 
