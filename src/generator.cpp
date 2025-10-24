@@ -3,6 +3,7 @@
 #include <string>
 #include <variant>
 
+#include "error.hpp"
 #include "generator.hpp"
 #include "parser.hpp"
 
@@ -72,8 +73,11 @@ void Generator::gen_fact(NodeFactor* fact) {
         Generator* gen;
 
         void operator()(NodeVar& var) {
-            if (!gen->m_vars.contains(var.name))
-                throw std::runtime_error("Var " + var.name + " has not been initialized!");
+            if (!gen->m_vars.contains(var.name)) {
+                Error::critical(
+                    gen->m_line, std::format("Var {} hasn't been initialized!", var.name).c_str()
+                );
+            }
 
             auto& v = gen->m_vars.at(var.name);
 
@@ -197,9 +201,6 @@ void Generator::gen_stat(NodeStat* stat) {
         Generator* gen;
 
         void operator()(NodeStatPrint* stat_print) {
-            if (stat_print->exprs->list.size() == 0)
-                throw std::runtime_error("Print expression list is empty!");
-
             struct ExprListVisitor {
                 Generator* gen;
                 bool last_print;
@@ -330,12 +331,24 @@ void Generator::gen_stat(NodeStat* stat) {
             gen->m_output << "skip" << gen->m_skip_counter++ << ":\n";
         }
 
-        void operator()(const NodeStatClear* stat_clear) {}
-        void operator()(const NodeStatList* stat_list) {}
-        void operator()(const NodeStatRun* stat_run) {}
+        void operator()(const NodeStatClear* stat_clear) {
+            ;
+        }
+
+        void operator()(const NodeStatList* stat_list) {
+            ;
+        }
+
+        void operator()(const NodeStatRun* stat_run) {
+            ;
+        }
 
         void operator()(const NodeStatEnd* stat_end) {
             gen->m_output << "\tjmp exit\n";
+        }
+
+        void operator()(const std::monostate& mono) {
+            ;
         }
     };
 
@@ -350,6 +363,7 @@ void Generator::gen_line(NodeLine* line) {
         m_output << "com" << num << ":\n";
     }
 
+    m_line = line->line;
     gen_stat(line->stat);
 }
 

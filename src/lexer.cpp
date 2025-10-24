@@ -11,19 +11,19 @@ Token Lexer::tokenize_alpha() {
         buf.push_back(consume());
     }
 
-    if      (buf == "PRINT")  return {.type = TokenType::print};
-    else if (buf == "IF")     return {.type = TokenType::_if};
-    else if (buf == "THEN")   return {.type = TokenType::then};
-    else if (buf == "GOTO")   return {.type = TokenType::_goto};
-    else if (buf == "INPUT")  return {.type = TokenType::input};
-    else if (buf == "LET")    return {.type = TokenType::let};
-    else if (buf == "GOSUB")  return {.type = TokenType::gosub};
-    else if (buf == "RETURN") return {.type = TokenType::_return};
-    else if (buf == "CLEAR")  return {.type = TokenType::clear};
-    else if (buf == "LIST")   return {.type = TokenType::list};
-    else if (buf == "RUN")    return {.type = TokenType::run};
-    else if (buf == "END")    return {.type = TokenType::end};
-    else                      return {.type = TokenType::var, .var = buf};
+    if      (buf == "PRINT")  return {.type = TokenType::print, .line=m_line};
+    else if (buf == "IF")     return {.type = TokenType::_if, .line=m_line};
+    else if (buf == "THEN")   return {.type = TokenType::then, .line=m_line};
+    else if (buf == "GOTO")   return {.type = TokenType::_goto, .line=m_line};
+    else if (buf == "INPUT")  return {.type = TokenType::input, .line=m_line};
+    else if (buf == "LET")    return {.type = TokenType::let, .line=m_line};
+    else if (buf == "GOSUB")  return {.type = TokenType::gosub, .line=m_line};
+    else if (buf == "RETURN") return {.type = TokenType::_return, .line=m_line};
+    else if (buf == "CLEAR")  return {.type = TokenType::clear, .line=m_line};
+    else if (buf == "LIST")   return {.type = TokenType::list, .line=m_line};
+    else if (buf == "RUN")    return {.type = TokenType::run, .line=m_line};
+    else if (buf == "END")    return {.type = TokenType::end, .line=m_line};
+    else                      return {.type = TokenType::var, .line=m_line, .var = buf};
 }
 
 Token Lexer::tokenize_digit() {
@@ -33,7 +33,7 @@ Token Lexer::tokenize_digit() {
         buf.push_back(consume());
     }
 
-    return {.type = TokenType::num, .var = buf};
+    return {.type = TokenType::num, .line=m_line, .var = buf};
 }
 
 Token Lexer::tokenize_str() {
@@ -60,7 +60,7 @@ Token Lexer::tokenize_str() {
         }
     }
 
-    return {.type = TokenType::str, .var = buf};
+    return {.type = TokenType::str, .line=m_line, .var = buf};
 }
 
 void Lexer::remove_comments() {
@@ -85,17 +85,17 @@ std::vector<Token> Lexer::gen_tokens() {
             result.push_back(tokenize_digit());
         } else {
             switch (c.value()) {
-                case '(': result.push_back({.type = TokenType::open_paren}); break;
-                case ')': result.push_back({.type = TokenType::close_paren}); break;
-                case '>': result.push_back({.type = TokenType::gt}); break;
-                case '<': result.push_back({.type = TokenType::lt}); break;
-                case '=': result.push_back({.type = TokenType::eq}); break;
-                case '+': result.push_back({.type = TokenType::plus}); break;
-                case '-': result.push_back({.type = TokenType::minus}); break;
-                case '*': result.push_back({.type = TokenType::mul}); break;
-                case '/': result.push_back({.type = TokenType::div}); break;
-                case ',': result.push_back({.type = TokenType::com}); break;
-                case '\n': result.push_back({.type = TokenType::cr}); break;
+                case '(': result.push_back({.type = TokenType::open_paren, .line=m_line}); break;
+                case ')': result.push_back({.type = TokenType::close_paren, .line=m_line}); break;
+                case '>': result.push_back({.type = TokenType::gt, .line=m_line}); break;
+                case '<': result.push_back({.type = TokenType::lt, .line=m_line}); break;
+                case '=': result.push_back({.type = TokenType::eq, .line=m_line}); break;
+                case '+': result.push_back({.type = TokenType::plus, .line=m_line}); break;
+                case '-': result.push_back({.type = TokenType::minus, .line=m_line}); break;
+                case '*': result.push_back({.type = TokenType::mul, .line=m_line}); break;
+                case '/': result.push_back({.type = TokenType::div, .line=m_line}); break;
+                case ',': result.push_back({.type = TokenType::com, .line=m_line}); break;
+                case '\n': result.push_back({.type = TokenType::cr, .line=m_line++}); break;
                 case '"': result.push_back(tokenize_str()); break;
                 case '\'': remove_comments();
                 case ' ': break;
@@ -105,8 +105,9 @@ std::vector<Token> Lexer::gen_tokens() {
     }
     
     if (result.size() != 0)
-        result.push_back({.type=TokenType::cr});
+        result.push_back({.type=TokenType::cr, .line=m_line});
 
+    m_line = 1;
     m_index = 0;
     return result;
 }

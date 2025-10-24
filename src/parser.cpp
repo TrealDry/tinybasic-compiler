@@ -2,12 +2,13 @@
 #include <stdexcept>
 #include <variant>
 
+#include "error.hpp"
 #include "parser.hpp"
 #include "lexer.hpp"
 
 NodeFactor* Parser::parse_factor() {
     if (!peek().has_value())
-        throw std::runtime_error("Factor is empty!");
+        Error::critical(m_line, "Expression is empty!");
 
     auto fact = m_mem_pool.alloc<NodeFactor>();
 
@@ -37,22 +38,21 @@ NodeFactor* Parser::parse_factor() {
 
             std::visit(FactorVisitor{.fact=fact}, parse_expr()->term);
 
-            if (!peek().has_value() || \
-                peek().value().type != TokenType::close_paren)
-                throw std::runtime_error("Doesnt exist close paren after expr!");
+            if (!peek().has_value() || peek().value().type != TokenType::close_paren)
+                Error::critical(m_line, "Expression was not closed by close paren!");
+
             consume();
-            
             break;
         default:
-            throw std::runtime_error("Wrong keyword for factor!");
+            Error::critical(m_line, "Invalid expression!");
     }
 
     return fact;
 }
 
 NodeTerm* Parser::parse_term() {
-    if (!peek().has_value())
-        throw std::runtime_error("Term is empty!");
+    if (!peek().has_value()) 
+        Error::critical(m_line, "Expression is empty!");
 
     auto term = m_mem_pool.alloc<NodeTerm>();
     term->fact = std::monostate{};
@@ -99,13 +99,27 @@ NodeTerm* Parser::parse_term() {
 
         term->fact = fact_op;
     }
+
+    if (term->fact.index() == 0)
+        Error::critical(m_line, "Expression is empty!");
+
+    if (term->fact.index() == 2) {
+        if (auto fact_op = std::get<2>(term->fact); fact_op->is_mul) {
+            return term;
+        } else if (fact_op->fact2.index() == 1) {
+            if (auto body = std::get<0>(fact_op->fact2)->body; body.index() == 1) {
+                if (std::get<1>(body).num == "0")
+                    Error::critical(m_line, "Division by zero!");
+            }
+        }
+    }
     
     return term;
 }
 
 NodeExpr* Parser::parse_expr() {
     if (!peek().has_value()) 
-        throw std::runtime_error("Expression (tokens) is empty!");
+        Error::critical(m_line, "Expression is empty!");
 
     auto expr = m_mem_pool.alloc<NodeExpr>();
     expr->term = std::monostate{};
@@ -154,14 +168,14 @@ NodeExpr* Parser::parse_expr() {
     }
 
     if (expr->term.index() == 0)
-        throw std::runtime_error("Expression (tokens) is empty!");
+        Error::critical(m_line, "Expression is empty!");
 
     return expr;
 }
 
 NodeRelop Parser::parse_relop() {
     if (!peek().has_value() && !peek(1).has_value())
-        throw std::runtime_error("Relop is empty!");
+        Error::critical(m_line, "Relop is empty!");
     
     NodeRelop relop;
 
@@ -179,21 +193,28 @@ NodeRelop Parser::parse_relop() {
 
     switch (first_token.type) {
         case TokenType::lt:
-            if (second_token.type == TokenType::gt) 
+            if (second_token.type == TokenType::gt) {
                 relop.type = RelopType::ne;
-            else if (second_token.type == TokenType::eq)
+            }
+            else if (second_token.type == TokenType::eq) {
                 relop.type = RelopType::lte;
-            else
+            }
+            else {
                 relop.type = RelopType::lt;
+            }
             break;
 
         case TokenType::gt:
-            if (second_token.type == TokenType::lt) 
-                relop.type = RelopType::crazy;  // TODO print warn
-            else if (second_token.type == TokenType::eq)
+            if (second_token.type == TokenType::lt) {
+                relop.type = RelopType::crazy;
+                Error::warning(m_line, "`><` relop (crazy) is not implemented!");
+            }
+            else if (second_token.type == TokenType::eq) {
                 relop.type = RelopType::gte;
-            else
+            }
+            else {
                 relop.type = RelopType::gt;
+            }
             break;
 
         case TokenType::eq:
@@ -210,24 +231,26 @@ NodeRelop Parser::parse_relop() {
 NodeStatIf* Parser::parse_stat_if() {
     auto stat_if = m_mem_pool.alloc<NodeStatIf>();
 
-    if (!peek().has_value())
-        throw std::runtime_error("First expr is empty!");
-
     stat_if->expr  = parse_expr();
     stat_if->relop = parse_relop();
     stat_if->expr2 = parse_expr();
 
     if (!peek().has_value() || peek().value().type != TokenType::then)
-        throw std::runtime_error("THEN keyword is missing!");
+        Error::critical(m_line, "Keyword `THEN` is missing!");
 
     consume();
 
-    stat_if->then = parse_stat();
+    auto stat = parse_stat();
+
+    if (stat == nullptr || stat->com.index() == 0)
+        Error::critical(m_line, "There is no command after `THEN`!");
+
+    stat_if->then = stat;
 
     return stat_if;
 }
 
-NodeVarList Parser::parse_var_list() {
+NodeVarList Parser::parse_var_list() {  // var list used only command INPUT
     NodeVarList var_list;
 
     while (peek().has_value() && peek().value().type != TokenType::cr) {
@@ -236,9 +259,12 @@ NodeVarList Parser::parse_var_list() {
         } else if (peek().value().type == TokenType::com) {
             consume();
         } else {
-            throw std::runtime_error("Incorrect var list!");
+            Error::critical(m_line, "Command `INPUT` accepts only vars!");
         }
     }
+
+    if (var_list.list.size() == 0)
+        Error::critical(m_line, "Command `INPUT` has no arguments!");
 
     return var_list;
 }
@@ -255,16 +281,16 @@ NodeExpr* Parser::parse_const_expr() {
     auto expr = parse_expr();
 
     if (expr->term.index() == 2)
-        throw std::runtime_error("Expr (for goto, gosub) is not constant!");
+        Error::critical(m_line, "Expression (for `GOTO` and `GOSUB`) is not constant!");
 
     auto term = std::get<1>(expr->term);
     if (term->fact.index() != 1)
-        throw std::runtime_error("Expr (for goto, gosub) is not constant!");
+        Error::critical(m_line, "Expression (for `GOTO` and `GOSUB`) is not constant!");
 
     auto fact = std::get<1>(term->fact);
 
     if (fact->body.index() != 1)
-        throw std::runtime_error("Expr (for goto, gosub) is not constant!");
+        Error::critical(m_line, "Expression (for `GOTO` and `GOSUB`) is not constant!");
 
     return expr;
 }
@@ -290,17 +316,17 @@ NodeStatLet* Parser::parse_stat_let() {
     auto stat_let = m_mem_pool.alloc<NodeStatLet>();
 
     if (!peek().has_value() || peek().value().type != TokenType::var)
-        throw std::runtime_error("Var name is empty!");
+        Error::critical(m_line, "Var name must be a single english capital letter!");
 
     std::string var_name = consume().var.value();
     if (var_name.length() != 1 || !std::isupper(var_name.at(0)))
-        throw std::runtime_error("Invalid var name!");
+        Error::critical(m_line, "Var name must be a single english capital letter!");
     
     m_unique_let.insert(var_name.at(0));
     stat_let->var = NodeVar{.name = var_name};
 
     if (!peek().has_value() || peek().value().type != TokenType::eq)
-        throw std::runtime_error("Operator '=' is missing!");
+        Error::critical(m_line, "Operator `=` is missing!");
 
     consume();
 
@@ -314,9 +340,6 @@ NodeStatPrint* Parser::parse_stat_print() {
     auto expr_list = m_mem_pool.alloc<NodeExprList>();
 
     stat_print->exprs = expr_list;
-
-    if (!peek().has_value())
-        throw std::runtime_error("Print is empty!");
 
     while (peek().has_value() && peek().value().type != TokenType::cr) {
         if (peek().value().type == TokenType::num || \
@@ -332,19 +355,24 @@ NodeStatPrint* Parser::parse_stat_print() {
             consume();
         }
         else {
-            throw std::runtime_error("Wrong token in print!");
+            Error::critical(m_line, "Command `PRINT` accepts only: vars, expressions, and strings!");
         }
     }
+
+    if (stat_print->exprs->list.size() == 0)
+        Error::critical(m_line, "Command `PRINT` has no arguments!");
     
     return stat_print;
 }
 
 NodeStat* Parser::parse_stat() {
     if (!peek().has_value()) 
-        throw std::runtime_error("Command is empty!");
+        Error::critical(m_line, "Command is empty!");
 
     auto node_stat = m_mem_pool.alloc<NodeStat>();
     auto token = consume();
+
+    m_line = token.line;
 
     switch (token.type) {
         case TokenType::print:   node_stat->com = Parser::parse_stat_print(); break;
@@ -354,12 +382,23 @@ NodeStat* Parser::parse_stat() {
         case TokenType::let:     node_stat->com = Parser::parse_stat_let(); break;
         case TokenType::gosub:   node_stat->com = Parser::parse_stat_gosub(); break;
         case TokenType::_return: node_stat->com = m_mem_pool.alloc<NodeStatReturn>(); break;
-        case TokenType::clear:   node_stat->com = m_mem_pool.alloc<NodeStatClear>(); break;
         case TokenType::end:     node_stat->com = m_mem_pool.alloc<NodeStatEnd>(); break;
-        case TokenType::list:    break;
-        case TokenType::run:     break;
-        case TokenType::cr:      return nullptr;
-        default:                 throw std::runtime_error("Invalid command!");
+        case TokenType::clear:   
+            node_stat->com = m_mem_pool.alloc<NodeStatClear>();
+            Error::warning(m_line, "command `CLEAR` is not implemented!");
+            break;
+        case TokenType::list:    
+            node_stat->com = m_mem_pool.alloc<NodeStatList>(); 
+            Error::warning(m_line, "command `LIST` is not implemented!");
+            break;
+        case TokenType::run:     
+            node_stat->com = m_mem_pool.alloc<NodeStatRun>(); 
+            Error::warning(m_line, "command `RUN` is not implemented!");
+            break;
+        case TokenType::cr:      
+            return nullptr;
+        default:                 
+            Error::critical(m_line, "Invalid command!");
     }
 
     if (peek().has_value() && peek()->type == TokenType::cr)
@@ -380,6 +419,7 @@ NodeLine* Parser::parse_line() {
 
     if (auto stat = parse_stat()) {
         line->stat = stat;
+        line->line = m_line;
         return line;
     } else {
         return nullptr;

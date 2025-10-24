@@ -92,17 +92,18 @@ struct NodeStatList {};
 struct NodeStatRun {};
 
 struct NodeStat {
-    std::variant<NodeStatPrint*, NodeStatIf*, \
-    NodeStatGoto*, NodeStatInput*, \
-    NodeStatLet*, NodeStatGosub*, \
-    NodeStatReturn*, NodeStatClear*, \
-    NodeStatList*, NodeStatRun*, \
-    NodeStatEnd*> com;
+    std::variant<std::monostate, NodeStatPrint*, 
+    NodeStatIf*, NodeStatGoto*, 
+    NodeStatInput*, NodeStatLet*, 
+    NodeStatGosub*, NodeStatReturn*, 
+    NodeStatClear*, NodeStatList*, 
+    NodeStatRun*, NodeStatEnd*> com;
 };
 
 struct NodeLine {
     std::optional<NodeNum> num;
     NodeStat* stat;
+    size_t line;
 };
 
 struct NodeProg {
@@ -142,6 +143,7 @@ private:
     MemoryPool m_mem_pool;
     std::vector<Token> m_tokens;
     size_t m_index = 0;
+    size_t m_line = 1;
 
     std::unordered_set<char> m_unique_let;
 };

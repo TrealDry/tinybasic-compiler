@@ -2,9 +2,10 @@
 A Tiny Basic compiler for linux (x86_64 architecture), written for the sake of learning compilation mechanisms and having fun.
 
 ## Prerequisites
-To build the project, you need to have the following tools installed:
+To build and run project, you need to have the following tools installed:
 - `git`
 - `cmake`
+- `nasm`
 - A C++ compiler like `g++`
 
 ## How to build

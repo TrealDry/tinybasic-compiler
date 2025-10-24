@@ -40,6 +40,8 @@ private:
     void print_number(bool last_print);
     void print_str(std::string& str, bool last_print);
 
+    size_t m_line = 1;
+
     std::stringstream m_output;
     std::stringstream m_data;
 

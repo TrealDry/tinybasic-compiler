@@ -14,6 +14,7 @@ enum class TokenType {
 
 struct Token {
     TokenType type;
+    size_t line;
     std::optional<std::string> var;
 };
 
@@ -33,6 +34,7 @@ private:
 
     void remove_comments();
 
+    size_t m_line = 1;
     size_t m_index = 0;
     std::string m_code;
 };
