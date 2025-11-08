@@ -146,4 +146,5 @@ private:
     size_t m_line = 1;
 
     std::unordered_set<char> m_unique_let;
+    std::unordered_set<long long> m_unique_str_num;
 };

@@ -1,1 +1,1 @@
-010 PRINT "hi!"
+010 PRINT "hi!\nmy name is gustavo!"

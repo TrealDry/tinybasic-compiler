@@ -1,0 +1,3 @@
+010 LET A = 1
+010 LET B = 2
+010 LET A = A - B

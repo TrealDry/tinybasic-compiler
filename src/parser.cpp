@@ -413,6 +413,13 @@ NodeLine* Parser::parse_line() {
     if (peek().value().type == TokenType::num) {
         auto token = consume();
         line->num = NodeNum{.num = token.var.value()};
+
+        int old_size = m_unique_str_num.size();
+        m_unique_str_num.insert(std::stoi(line->num->num));
+
+        if (m_unique_str_num.size() == old_size) {
+            Error::critical(m_line, "Row number is not unique!");
+        }
     } else if (peek().value().type == TokenType::cr) {
         return nullptr;
     }

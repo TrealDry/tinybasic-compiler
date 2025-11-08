@@ -29,6 +29,12 @@ int Generator::write_str_in_data(std::string& str) {
             m_data_counter, str
         );
     } else {
+        for (int i = 0; i < str.length(); i++) {  // replace all nl to 10 (for asm)
+            if (str.at(i) == '\n') {
+                str.replace(i, 1, "\', 10, \'");
+            }
+        }
+
         m_data << std::format(
         "\tstr{} db \'{}\', 0\n",
             m_data_counter, str
