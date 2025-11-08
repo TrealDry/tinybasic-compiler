@@ -74,9 +74,10 @@ void Generator::print_str(std::string& str, bool last_print) {
     }
 }
 
-void Generator::gen_fact(NodeFactor* fact) {
+void Generator::gen_fact(NodeFactor* fact, bool is_negative) {
     struct FactorVisitor {
         Generator* gen;
+        bool is_negative;
 
         void operator()(NodeVar& var) {
             if (!gen->m_vars.contains(var.name)) {
@@ -87,41 +88,65 @@ void Generator::gen_fact(NodeFactor* fact) {
 
             auto& v = gen->m_vars.at(var.name);
 
-            gen->m_output << "\tpush " << gen->get_var_value(v.stack_loc) << "\n";
+            if (is_negative) {
+                gen->m_output << "\tmov rax, " << gen->get_var_value(v.stack_loc) << "\n";
+                gen->m_output << "\tneg rax\n";
+                gen->m_output << "\tpush rax\n";
+            } else {
+                gen->m_output << "\tpush " << gen->get_var_value(v.stack_loc) << "\n";
+            }
         }
 
         void operator()(NodeNum& num) {
+            if (is_negative) {
+                num.num.insert(0, 1, '-');
+            }
+
             gen->m_output << "\tmov rax, " << num.num << "\n";
             gen->m_output << "\tpush rax\n";
         }
 
         void operator()(NodeTerm* term) {
             gen->gen_term(term);
+            
+            if (is_negative) {
+                gen->m_output << "\tpop rax\n";
+                gen->m_output << "\tneg rax\n";
+                gen->m_output << "\tpush rax\n";
+            }
         }
 
         void operator()(NodeTermOp* term_op) {
             gen->gen_term_op(term_op);
+
+            if (is_negative) {
+                gen->m_output << "\tpop rax\n";
+                gen->m_output << "\tneg rax\n";
+                gen->m_output << "\tpush rax\n";
+            }
         }
     };
 
-    std::visit(FactorVisitor{.gen = this}, fact->body);
+    std::visit(FactorVisitor{.gen = this, .is_negative = is_negative}, fact->body);
 }
 
-void Generator::gen_fact_op(NodeFactorOp* fact_op) {
+void Generator::gen_fact_op(NodeFactorOp* fact_op, bool is_negative) {
     struct FactVisitor {
         Generator* gen;
+        bool is_negative;
 
         void operator()(NodeFactor* fact) {
-            gen->gen_fact(fact);
+            gen->gen_fact(fact, is_negative);
         }
 
         void operator()(NodeFactorOp* fact_op) {
-            gen->gen_fact_op(fact_op);
+            gen->gen_fact_op(fact_op, is_negative);
         }
     };
 
-    FactVisitor f{.gen = this};
+    FactVisitor f{.gen = this, .is_negative = is_negative};
     std::visit(f, fact_op->fact);
+    f.is_negative = false;
     std::visit(f, fact_op->fact2);
 
     m_output << "\tpop rbx\n";
@@ -140,24 +165,31 @@ void Generator::gen_fact_op(NodeFactorOp* fact_op) {
 void Generator::gen_term(NodeTerm* term) {
     struct FactorVisitor {
         Generator* gen;
+        bool is_negative;
 
-        void operator()(std::monostate& mono) {}
+        void operator()(std::monostate& mono) {
+            ;
+        }
 
         void operator()(NodeFactor* fact) {
-            gen->gen_fact(fact);
+            gen->gen_fact(fact, is_negative);
         }
 
         void operator()(NodeFactorOp* fact_op) {
-            gen->gen_fact_op(fact_op);
+            gen->gen_fact_op(fact_op, is_negative);
         }
     };
 
-    std::visit(FactorVisitor{.gen = this}, term->fact);
+    std::visit(FactorVisitor{.gen = this, .is_negative = term->is_negative}, term->fact);
 }
 
 void Generator::gen_term_op(NodeTermOp* term_op) {
     struct TermVisitor {
         Generator* gen;
+
+        void operator()(std::monostate& mono) {
+            ;
+        }
 
         void operator()(NodeTerm* term) {
             gen->gen_term(term);

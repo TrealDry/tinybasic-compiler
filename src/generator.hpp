@@ -16,8 +16,8 @@ public:
 private:
     void remove_extra_zeros(std::string& str);
 
-    void gen_fact_op(NodeFactorOp* fact_op);
-    void gen_fact(NodeFactor* fact);
+    void gen_fact_op(NodeFactorOp* fact_op, bool is_negative);
+    void gen_fact(NodeFactor* fact, bool is_negative);
 
     void gen_term_op(NodeTermOp* term_op);
     void gen_term(NodeTerm* term);

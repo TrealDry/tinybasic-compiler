@@ -129,7 +129,20 @@ NodeExpr* Parser::parse_expr() {
         NodeTerm* first_term;
 
         if (peek().value().type == TokenType::plus || peek().value().type == TokenType::minus) {
-            term_op_exits = true;
+            if (expr->term.index() != 0) {
+                term_op_exits = true;
+            } else {  // unary minus or plus
+                auto op = consume();
+                auto term = parse_term();
+
+                if (op.type == TokenType::minus) {
+                    term->is_negative = true;
+                }
+
+                expr->term = term;
+                
+                continue;
+            }
         } else if (peek().value().type == TokenType::num || \
                    peek().value().type == TokenType::var || \
                    peek().value().type == TokenType::open_paren) 
@@ -158,7 +171,7 @@ NodeExpr* Parser::parse_expr() {
 
         term_op->is_add = op.type == TokenType::plus;
         if (term_op_exits) {
-            term_op->term = std::get<2>(expr->term);
+            term_op->term = expr->term;
         } else {
             term_op->term = first_term;
         }

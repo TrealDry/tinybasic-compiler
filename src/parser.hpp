@@ -32,11 +32,11 @@ struct NodeFactorOp {
 
 struct NodeTerm {
     std::variant<std::monostate, NodeFactor*, NodeFactorOp*> fact;
-    std::optional<bool> is_negative;
+    bool is_negative = false;
 };
 
 struct NodeTermOp {
-    std::variant<NodeTerm*, NodeTermOp*> term;
+    std::variant<std::monostate, NodeTerm*, NodeTermOp*> term;
     std::variant<NodeTerm*> term2;
     bool is_add;  // false - sub, true - add
 };
