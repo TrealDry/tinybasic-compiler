@@ -82,7 +82,7 @@ void Generator::gen_fact(NodeFactor* fact, bool is_negative) {
         void operator()(NodeVar& var) {
             if (!gen->m_vars.contains(var.name)) {
                 Error::critical(
-                    gen->m_line, std::format("Var {} hasn't been initialized!", var.name).c_str()
+                    gen->m_line, std::format("Var `{}` hasn't been initialized!", var.name).c_str()
                 );
             }
 
@@ -334,8 +334,8 @@ void Generator::gen_stat(NodeStat* stat) {
 
         void operator()(const NodeStatInput* stat_input) {
             for (auto& var: stat_input->var_list.list) {
-                if (!gen->m_vars.contains(var.name)) 
-                    throw std::runtime_error("Var " + var.name + " does not exist!");
+                if (!gen->m_vars.contains(var.name))
+                    Error::critical(gen->m_line, std::format("Var `{}` doesn't exist!", var.name).c_str());
                 
                 gen->m_output << "\tmov rdi, frm\n";
                 gen->m_output << "\tlea rsi, " \

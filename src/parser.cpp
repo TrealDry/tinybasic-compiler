@@ -1,5 +1,7 @@
+#include <format>
 #include <optional>
 #include <stdexcept>
+#include <utility>
 #include <variant>
 
 #include "error.hpp"
@@ -305,6 +307,12 @@ NodeExpr* Parser::parse_const_expr() {
     if (fact->body.index() != 1)
         Error::critical(m_line, "Expression (for `GOTO` and `GOSUB`) is not constant!");
 
+    long long num = std::stoi(std::get<1>(fact->body).num);
+    m_goto_num.insert({num, m_line});
+
+    if (peek().has_value() && peek().value().type != TokenType::cr)
+        Error::critical(m_line, "Chars after expression!");
+
     return expr;
 }
 
@@ -344,6 +352,9 @@ NodeStatLet* Parser::parse_stat_let() {
     consume();
 
     stat_let->expr = parse_expr();
+
+    if (peek().has_value() && peek().value().type != TokenType::cr)
+        Error::critical(m_line, "Chars after expression!");
 
     return stat_let;
 }
@@ -446,6 +457,13 @@ NodeLine* Parser::parse_line() {
     }
 }
 
+void Parser::check_correct_goto() {
+    for (auto [num, line]: m_goto_num) {
+        if (!m_unique_str_num.contains(num))
+            Error::critical(line, std::format("Line number {} does not exist!", num).c_str());
+    }
+}
+
 NodeProg Parser::gen_prog() {
     NodeProg prog;
 
@@ -455,9 +473,11 @@ NodeProg Parser::gen_prog() {
     while (peek().has_value()) {
         if (auto line = parse_line()) 
             prog.lines.push_back(line);
-        else
+        else if (peek().has_value())
             consume();
     }
+
+    check_correct_goto();
 
     return prog;
 }

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 #include <variant>
 #include <vector>
@@ -123,6 +124,8 @@ private:
     std::optional<Token> peek(int offset = 0);
     Token consume();
 
+    void check_correct_goto();
+
     NodeFactor* parse_factor();
     NodeTerm* parse_term();
     NodeExpr* parse_expr();
@@ -147,4 +150,5 @@ private:
 
     std::unordered_set<char> m_unique_let;
     std::unordered_set<long long> m_unique_str_num;
+    std::unordered_map<long long, long long> m_goto_num;  // (goto num, line num in code)
 };

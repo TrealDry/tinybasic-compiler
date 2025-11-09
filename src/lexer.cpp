@@ -1,7 +1,10 @@
 #include "lexer.hpp"
+#include "error.hpp"
 
 #include <cctype>
+#include <format>
 #include <string>
+#include <utility>
 #include <vector>
 
 Token Lexer::tokenize_alpha() {
@@ -99,6 +102,7 @@ std::vector<Token> Lexer::gen_tokens() {
                 case '"': result.push_back(tokenize_str()); break;
                 case '\'': remove_comments();
                 case ' ': break;
+                default: Error::warning(m_line, "Non-standard character!"); break;
             }
             consume();
         }
